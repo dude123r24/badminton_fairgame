@@ -40,7 +40,19 @@ State your assumptions and proceed.
 ## Resume Prompt (if session ends mid-build)
 
 ```
-Read claude.md, then read all files in tasks/ folder.
-Resume from exactly where you left off per tasks/handoff.md.
+Read claude.md, Then read all files in the tasks/ folder in this order:
+1. tasks/context.md
+2. tasks/handoff.md
+3. tasks/todo.md
+4. tasks/decisions.md
+5. tasks/lessons.md
+
+Your job is to Resume from exactly where you left off per tasks/handoff.md,
+following the spec exactly and the workflow rules in claude.md.
+
 Do not re-do completed work. Continue building.
+At each step: write the plan to tasks/todo.md first,
+then implement, then verify it works before moving on. Update the tasks/todo.md and tasks/handover.md with completed status where applicable.
+Do not ask me questions unless you are completely blocked.
+State your assumptions and proceed.
 ```

@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-app: #F7F8FA;
+    --bg-card: #FFFFFF;
+    --bg-elevated: #FFFFFF;
+    --border-default: #E5E7EB;
+    --text-primary: #111827;
+    --text-secondary: #6B7280;
+    --text-tertiary: #9CA3AF;
+  }
+
+  html.dark {
+    --bg-app: #0F1117;
+    --bg-card: #1A1D27;
+    --bg-elevated: #222530;
+    --border-default: #2D3140;
+    --text-primary: #F3F4F6;
+    --text-secondary: #9CA3AF;
+    --text-tertiary: #6B7280;
+  }
+
+  * {
+    @apply border-neutral/20;
+  }
+
+  html {
+    @apply h-full;
+  }
+
+  body {
+    @apply h-full;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html.dark body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+  }
+}
+
+@layer components {
+  .tap-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .safe-bottom {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .safe-bottom-bar {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+@supports (padding: max(0px)) {
+  .fixed-bottom-safe {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}

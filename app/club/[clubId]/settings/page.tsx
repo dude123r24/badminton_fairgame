@@ -1,0 +1,226 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+
+interface Club {
+  id: string
+  name: string
+  location: string | null
+  defaultCourts: number
+  defaultPairingAlgorithm: string
+  defaultOpponentAlgorithm: string
+  defaultScoringSystem: string
+  userRole: 'OWNER' | 'ADMIN' | 'MEMBER'
+}
+
+const pairingOptions = [
+  { value: 'RANDOM', label: 'Random', desc: 'Fully random partner assignment' },
+  { value: 'EQUAL_WEIGHT', label: 'Equal Weight', desc: 'Balanced by games played' },
+  { value: 'PER_GAME', label: 'Per Game', desc: 'Re-pair every game based on sitting time' },
+]
+
+const opponentOptions = [
+  { value: 'RANDOM', label: 'Random', desc: 'Random opponent selection' },
+  { value: 'EQUAL_WEIGHT', label: 'Equal Weight', desc: 'Balanced by game count' },
+  { value: 'OPPONENT_WEIGHT', label: 'Opponent Weight', desc: 'Avoid repeat matchups' },
+  { value: 'PLAY_WITHIN_CLASS', label: 'Within Class', desc: 'Match similar skill levels' },
+]
+
+const scoringOptions = [
+  { value: 'RALLY_21', label: 'Rally 21', desc: 'First to 21, win by 2' },
+  { value: 'RALLY_21_SETTING', label: 'Rally 21 (Setting)', desc: 'Setting at 29-all' },
+  { value: 'RALLY_21_NO_SETTING', label: 'Rally 21 (No Setting)', desc: 'Exactly 21 to win' },
+  { value: 'SHORT_15', label: 'Short 15', desc: 'First to 15' },
+  { value: 'SHORT_7', label: 'Short 7', desc: 'First to 7' },
+]
+
+export default function SettingsPage({ params }: { params: { clubId: string } }) {
+  const router = useRouter()
+  const [club, setClub] = useState<Club | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const [name, setName] = useState('')
+  const [location, setLocation] = useState('')
+  const [courts, setCourts] = useState(2)
+  const [pairing, setPairing] = useState('EQUAL_WEIGHT')
+  const [opponent, setOpponent] = useState('EQUAL_WEIGHT')
+  const [scoring, setScoring] = useState('RALLY_21')
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/clubs/${params.clubId}`)
+    if (!res.ok) { router.push('/dashboard'); return }
+    const data = await res.json()
+    setClub(data)
+    setName(data.name)
+    setLocation(data.location ?? '')
+    setCourts(data.defaultCourts)
+    setPairing(data.defaultPairingAlgorithm)
+    setOpponent(data.defaultOpponentAlgorithm)
+    setScoring(data.defaultScoringSystem)
+    setLoading(false)
+  }, [params.clubId, router])
+
+  useEffect(() => { load() }, [load])
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true); setSaved(false)
+    const res = await fetch(`/api/clubs/${params.clubId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim(),
+        location: location.trim() || null,
+        defaultCourts: courts,
+        defaultPairingAlgorithm: pairing,
+        defaultOpponentAlgorithm: opponent,
+        defaultScoringSystem: scoring,
+      }),
+    })
+    setSaving(false)
+    if (res.ok) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
+  if (loading || !club) {
+    return <main className="flex min-h-screen items-center justify-center"><p className="text-[14px] text-gray-400">Loading…</p></main>
+  }
+
+  if (club.userRole !== 'OWNER') { router.push(`/club/${params.clubId}`); return null }
+
+  return (
+    <main className="mx-auto max-w-[640px] px-[16px] pb-[80px] pt-[20px]">
+      <Link
+        href={`/club/${params.clubId}`}
+        className="mb-[20px] inline-flex items-center gap-[4px] text-[13px] font-medium text-gray-400 transition-colors hover:text-gray-600"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        Back to club
+      </Link>
+
+      <h1 className="mb-[24px] text-[22px] font-bold tracking-tight text-gray-900">Club Settings</h1>
+
+      <form onSubmit={save} className="space-y-[24px]">
+        {/* Basic info */}
+        <SettingsSection title="General">
+          <FieldGroup label="Club Name">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-[14px] text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+              required
+            />
+          </FieldGroup>
+          <FieldGroup label="Location">
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Melbourne Sports Centre"
+              className="w-full rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-[14px] text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+          </FieldGroup>
+          <FieldGroup label="Default Courts">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={courts}
+              onChange={(e) => setCourts(parseInt(e.target.value, 10) || 1)}
+              className="w-[80px] rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-center text-[14px] text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+          </FieldGroup>
+        </SettingsSection>
+
+        {/* Pairing */}
+        <SettingsSection title="Pairing Algorithm">
+          <p className="mb-[10px] text-[12px] text-gray-400">How partners are assigned each round</p>
+          <RadioGroup options={pairingOptions} value={pairing} onChange={setPairing} name="pairing" />
+        </SettingsSection>
+
+        {/* Opponent */}
+        <SettingsSection title="Opponent Selection">
+          <p className="mb-[10px] text-[12px] text-gray-400">How opposing teams are matched</p>
+          <RadioGroup options={opponentOptions} value={opponent} onChange={setOpponent} name="opponent" />
+        </SettingsSection>
+
+        {/* Scoring */}
+        <SettingsSection title="Scoring System">
+          <p className="mb-[10px] text-[12px] text-gray-400">Default scoring for new sessions</p>
+          <RadioGroup options={scoringOptions} value={scoring} onChange={setScoring} name="scoring" />
+        </SettingsSection>
+
+        {/* Save */}
+        <div className="sticky bottom-0 border-t border-gray-100 bg-[#F7F8FA]/90 py-[16px] backdrop-blur-md">
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-xl bg-primary py-[14px] text-[14px] font-semibold text-white shadow-[0_2px_8px_rgba(22,163,74,0.25)] transition-all disabled:opacity-50 active:scale-[0.98]"
+          >
+            {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Changes'}
+          </button>
+        </div>
+      </form>
+    </main>
+  )
+}
+
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-gray-100 bg-white p-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <h2 className="mb-[16px] text-[15px] font-semibold text-gray-900">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-[14px] last:mb-0">
+      <label className="mb-[6px] block text-[12px] font-medium text-gray-500">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+function RadioGroup({ options, value, onChange, name }: {
+  options: { value: string; label: string; desc: string }[]
+  value: string
+  onChange: (v: string) => void
+  name: string
+}) {
+  return (
+    <div className="space-y-[6px]">
+      {options.map((opt) => (
+        <label
+          key={opt.value}
+          className={`flex cursor-pointer items-center gap-[12px] rounded-xl px-[14px] py-[10px] transition-colors ${
+            value === opt.value
+              ? 'bg-primary/[0.06] ring-1 ring-primary/20'
+              : 'hover:bg-gray-50'
+          }`}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="h-[16px] w-[16px] border-gray-300 text-primary focus:ring-primary/20"
+          />
+          <div>
+            <p className="text-[13px] font-medium text-gray-900">{opt.label}</p>
+            <p className="text-[11px] text-gray-400">{opt.desc}</p>
+          </div>
+        </label>
+      ))}
+    </div>
+  )
+}

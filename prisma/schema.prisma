@@ -1,0 +1,442 @@
+// Prisma schema for FairGame
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// User & Authentication
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  platformRole  PlatformRole @default(USER)
+  theme         String    @default("system")
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  clubMemberships      ClubMembership[]
+  ownedClubs          Club[]
+  playerProfiles      PlayerProfile[]
+  createdClubSessions ClubSession[]
+  sessionPlayers      SessionPlayer[]
+  featureRequests     FeatureRequest[]
+  featureVotes        FeatureVote[]
+  gamesEntered        GameSet[]
+  classOverrides      PlayerProfile[] @relation("ClassOverrider")
+  formatOverrides     Game[] @relation("FormatOverrider")
+
+  // NextAuth relations
+  accounts        Account[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+enum PlatformRole {
+  PLATFORM_ADMIN
+  USER
+}
+
+// ============================================================================
+// NextAuth Models
+// ============================================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================================
+// Club Management
+// ============================================================================
+
+model Club {
+  id                        String   @id @default(cuid())
+  name                      String
+  location                  String?
+  ownerId                   String
+  defaultCourts             Int      @default(2)
+  defaultPairingAlgorithm   PairingAlgorithm @default(EQUAL_WEIGHT)
+  defaultOpponentAlgorithm  OpponentAlgorithm @default(EQUAL_WEIGHT)
+  defaultMatchFormat        MatchFormat @default(ROTATING_PARTNER)
+  defaultTournamentStructure TournamentStructure @default(CLUB_ROTATION)
+  defaultScoringSystem      ScoringSystem @default(RALLY_21)
+  defaultCustomCapScore     Int?
+  allowConcurrentSessions   Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+
+  // Relations
+  owner           User @relation(fields: [ownerId], references: [id])
+  memberships       ClubMembership[]
+  playerProfiles    PlayerProfile[]
+  seasons           Season[]
+  recurringSessions RecurringSession[]
+  clubSessions      ClubSession[]
+
+  @@map("clubs")
+}
+
+model ClubMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  role      ClubRole
+  status    MembershipStatus @default(ACTIVE)
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  user      User @relation(fields: [userId], references: [id])
+  club      Club @relation(fields: [clubId], references: [id])
+
+  @@unique([userId, clubId])
+  @@map("club_memberships")
+}
+
+enum ClubRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model PlayerProfile {
+  id                  String   @id @default(cuid())
+  userId              String
+  clubId              String
+  class               PlayerClass @default(INTERMEDIATE)
+  rating              Float    @default(1500.0)
+  classOverriddenBy   String?
+  classOverriddenAt   DateTime?
+
+  // Relations
+  user                User @relation(fields: [userId], references: [id])
+  club                Club @relation(fields: [clubId], references: [id])
+  overrider           User? @relation("ClassOverrider", fields: [classOverriddenBy], references: [id])
+
+  @@unique([userId, clubId])
+  @@map("player_profiles")
+}
+
+enum PlayerClass {
+  AMATEUR
+  INTERMEDIATE
+  ADVANCED
+}
+
+// ============================================================================
+// Pairing & Match Configuration Enums
+// ============================================================================
+
+enum PairingAlgorithm {
+  RANDOM
+  EQUAL_WEIGHT
+  FIXED
+  PER_GAME
+}
+
+enum OpponentAlgorithm {
+  RANDOM
+  EQUAL_WEIGHT
+  OPPONENT_WEIGHT
+  PLAY_WITHIN_CLASS
+}
+
+enum MatchFormat {
+  FIXED_PAIR
+  ROTATING_PARTNER
+  RANDOM_PAIR
+}
+
+enum TournamentStructure {
+  CLUB_ROTATION
+  ROUND_ROBIN
+  SWISS
+  SINGLE_ELIM
+  DOUBLE_ELIM
+  COMBO
+}
+
+enum ScoringSystem {
+  RALLY_21
+  RALLY_21_SETTING
+  RALLY_21_NO_SETTING
+  SHORT_15
+  SHORT_7
+  CUSTOM_CAP
+  SERVICE_OVER_15
+}
+
+// ============================================================================
+// Season & Session Management
+// ============================================================================
+
+model Season {
+  id        String   @id @default(cuid())
+  clubId    String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+
+  // Relations
+  club                Club @relation(fields: [clubId], references: [id])
+  recurringSessions   RecurringSession[]
+  clubSessions        ClubSession[]
+
+  @@map("seasons")
+}
+
+model RecurringSession {
+  id            String   @id @default(cuid())
+  clubId        String
+  seasonId      String
+  dayOfWeek     DayOfWeek
+  startTime     String
+  defaultCourts Int
+  isPaused      Boolean  @default(false)
+
+  // Relations
+  club          Club @relation(fields: [clubId], references: [id])
+  season        Season @relation(fields: [seasonId], references: [id])
+  clubSessions  ClubSession[]
+
+  @@map("recurring_sessions")
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+model ClubSession {
+  id                      String   @id @default(cuid())
+  clubId                  String
+  seasonId                String?
+  recurringSessionId      String?
+  name                    String?
+  date                    DateTime
+  status                  SessionStatus @default(UPCOMING)
+  courts                  Int
+  courtNumbers            Int[]
+  pairingAlgorithm        PairingAlgorithm
+  opponentAlgorithm       OpponentAlgorithm
+  pairingMode             PairingMode
+  matchFormat             MatchFormat
+  tournamentStructure     TournamentStructure
+  scoringSystem           ScoringSystem
+  customCapScore          Int?
+  createdBy               String
+
+  // Relations
+  club                Club @relation(fields: [clubId], references: [id])
+  season              Season? @relation(fields: [seasonId], references: [id])
+  recurringSession    RecurringSession? @relation(fields: [recurringSessionId], references: [id])
+  creator             User @relation(fields: [createdBy], references: [id])
+  sessionPlayers      SessionPlayer[]
+  games               Game[]
+
+  @@map("club_sessions")
+}
+
+enum SessionStatus {
+  UPCOMING
+  ACTIVE
+  ENDED
+}
+
+enum PairingMode {
+  FIXED
+  PER_GAME
+}
+
+model SessionPlayer {
+  id              String   @id @default(cuid())
+  sessionId       String
+  userId          String?
+  guestName       String?
+  guestEmail      String?
+  status          PlayerAvailabilityStatus @default(AVAILABLE)
+  joinedAt        DateTime @default(now())
+
+  // Relations
+  session         ClubSession @relation(fields: [sessionId], references: [id])
+  user            User? @relation(fields: [userId], references: [id])
+  gamePlayers     GamePlayer[]
+
+  @@map("session_players")
+}
+
+enum PlayerAvailabilityStatus {
+  AVAILABLE
+  SITTING_OUT
+  ABSENT
+}
+
+// ============================================================================
+// Game & Scoring
+// ============================================================================
+
+model Game {
+  id                          String   @id @default(cuid())
+  sessionId                   String
+  courtNumber                 Int
+  type                        GameType
+  status                      GameStatus @default(IN_PROGRESS)
+  scoringSystemOverride       ScoringSystem?
+  customCapScoreOverride      Int?
+  matchFormatOverride         MatchFormat?
+  tournamentStructureOverride TournamentStructure?
+  formatOverriddenBy          String?
+  startedAt                   DateTime @default(now())
+  endedAt                     DateTime?
+
+  // Relations
+  session                 ClubSession @relation(fields: [sessionId], references: [id])
+  overrider               User? @relation("FormatOverrider", fields: [formatOverriddenBy], references: [id])
+  sets                    GameSet[]
+  gamePlayers             GamePlayer[]
+
+  @@map("games")
+}
+
+enum GameType {
+  SINGLES
+  DOUBLES
+}
+
+enum GameStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model GameSet {
+  id           String   @id @default(cuid())
+  gameId       String
+  setNumber    Int
+  teamAScore   Int
+  teamBScore   Int
+  winner       Team
+  isDeuceApplied Boolean @default(false)
+  enteredBy    String
+  enteredAt    DateTime @default(now())
+
+  // Relations
+  game         Game @relation(fields: [gameId], references: [id])
+  enterer      User @relation(fields: [enteredBy], references: [id])
+
+  @@unique([gameId, setNumber])
+  @@map("game_sets")
+}
+
+enum Team {
+  A
+  B
+}
+
+model GamePlayer {
+  id              String   @id @default(cuid())
+  gameId          String
+  sessionPlayerId String
+  team            Team
+
+  // Relations
+  game            Game @relation(fields: [gameId], references: [id])
+  sessionPlayer   SessionPlayer @relation(fields: [sessionPlayerId], references: [id])
+
+  @@map("game_players")
+}
+
+// ============================================================================
+// Feature Requests
+// ============================================================================
+
+model FeatureRequest {
+  id           String   @id @default(cuid())
+  submittedBy  String
+  title        String
+  description  String
+  status       FeatureRequestStatus @default(UNDER_REVIEW)
+  adminNotes   String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  submitter    User @relation(fields: [submittedBy], references: [id])
+  votes        FeatureVote[]
+
+  @@map("feature_requests")
+}
+
+enum FeatureRequestStatus {
+  UNDER_REVIEW
+  PLANNED
+  IN_PROGRESS
+  SHIPPED
+  DECLINED
+}
+
+model FeatureVote {
+  id               String   @id @default(cuid())
+  featureRequestId String
+  userId           String
+  createdAt        DateTime @default(now())
+
+  // Relations
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id])
+  user             User @relation(fields: [userId], references: [id])
+
+  @@unique([featureRequestId, userId])
+  @@map("feature_votes")
+}
