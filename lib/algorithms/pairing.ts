@@ -195,12 +195,14 @@ export function generateMatches(
   pairs: Pair[],
   courts: number,
   opponentAlgorithm: OpponentAlgorithm,
-  players: Player[]
+  players: Player[],
+  maxMatches?: number
 ): Match[] {
   const matches: Match[] = []
   const usedPairs = new Set<string>()
+  const limit = maxMatches ?? courts
 
-  for (let court = 1; court <= courts && pairs.length >= 2; court++) {
+  for (let i = 0; i < limit && pairs.length >= 2; i++) {
     const availablePairs = pairs.filter(
       (p) => !usedPairs.has(getPairId(p))
     )
@@ -227,7 +229,7 @@ export function generateMatches(
       matches.push({
         teamA: pair1,
         teamB: pair2,
-        courtNumber: court,
+        courtNumber: i + 1,
       })
     }
   }

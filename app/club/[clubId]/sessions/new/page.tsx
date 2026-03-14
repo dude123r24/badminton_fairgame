@@ -45,7 +45,7 @@ const STRUCTURE = [
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-[24px]">
-      <h2 className="mb-[10px] text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-400">{title}</h2>
+      <h2 className="mb-[10px] text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-tertiary)' }}>{title}</h2>
       {children}
     </section>
   )
@@ -140,62 +140,68 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
     }
   }
 
+  const inputCls = "w-full rounded-xl border px-[14px] py-[12px] text-[16px] transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+  const inputStyle = { borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-hover)', color: 'var(--text-primary)' }
+
   return (
-    <main className="mx-auto max-w-[720px] px-[16px] pb-[120px] pt-[20px]">
-      {/* Back link */}
+    <main className="mx-auto max-w-[720px] px-[16px] pb-[120px] pt-[16px] sm:px-[24px]">
       <button onClick={() => router.back()}
-        className="mb-[16px] inline-flex items-center gap-[4px] text-[13px] font-medium text-gray-400 transition-colors hover:text-gray-600">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-gray-400">
+        className="mb-[12px] inline-flex min-h-[44px] items-center gap-[6px] text-sm font-medium transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         Back
       </button>
 
-      {/* Header */}
       <div className="mb-[24px]">
-        <h1 className="text-[22px] font-bold tracking-tight text-gray-900">New Session</h1>
-        <p className="mt-[4px] text-[13px] text-gray-400">Set up how you want to play today.</p>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>New Session</h1>
+        <p className="mt-[4px] text-sm" style={{ color: 'var(--text-tertiary)' }}>Set up how you want to play today.</p>
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Basics card */}
-        <div className="mb-[24px] rounded-2xl bg-white p-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] sm:p-[20px]">
+        <div className="card mb-[24px] p-[16px] sm:p-[20px]">
           <Section title="Basics">
             <div className="space-y-[12px]">
               <div>
-                <label className="mb-[6px] block text-[13px] font-medium text-gray-600">
-                  Session name <span className="font-normal text-gray-400">(optional)</span>
+                <label className="mb-[6px] block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  Session name <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Tuesday Night Badminton"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-[14px] py-[10px] text-[14px] text-gray-700 transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className={inputCls}
+                  style={inputStyle}
                 />
               </div>
               <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-2">
                 <div>
-                  <label className="mb-[6px] block text-[13px] font-medium text-gray-600">Date & Time</label>
+                  <label className="mb-[6px] block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Date & Time</label>
                   <input
                     type="datetime-local"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-[14px] py-[10px] text-[14px] text-gray-700 transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className={inputCls}
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label className="mb-[6px] block text-[13px] font-medium text-gray-600">Courts</label>
-                  <div className="flex items-center gap-[8px] rounded-xl border border-gray-200 bg-gray-50/50 px-[10px] py-[6px]">
+                  <label className="mb-[6px] block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Courts</label>
+                  <div className="flex items-center gap-[8px] rounded-xl border px-[10px] py-[6px]" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-hover)' }}>
                     <button type="button" onClick={() => setCourts(Math.max(1, courts - 1))}
-                      className="flex h-[32px] w-[32px] items-center justify-center rounded-lg bg-white text-[16px] font-bold text-gray-500 shadow-sm transition-colors hover:bg-gray-100 active:scale-95">−</button>
-                    <span className="flex-1 text-center text-[15px] font-semibold text-gray-800">{courts}</span>
+                      className="flex h-[44px] w-[44px] items-center justify-center rounded-xl text-lg font-bold shadow-sm transition-colors active:scale-95"
+                      style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}>-</button>
+                    <span className="flex-1 text-center text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{courts}</span>
                     <button type="button" onClick={() => setCourts(Math.min(20, courts + 1))}
-                      className="flex h-[32px] w-[32px] items-center justify-center rounded-lg bg-white text-[16px] font-bold text-gray-500 shadow-sm transition-colors hover:bg-gray-100 active:scale-95">+</button>
+                      className="flex h-[44px] w-[44px] items-center justify-center rounded-xl text-lg font-bold shadow-sm transition-colors active:scale-95"
+                      style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}>+</button>
                   </div>
                   <input type="text" value={courtNumbers} onChange={(e) => setCourtNumbers(e.target.value)}
-                    className="mt-[8px] w-full rounded-xl border border-gray-200 bg-gray-50/50 px-[14px] py-[8px] text-[13px] text-gray-600 transition-colors focus:border-primary focus:bg-white focus:outline-none"
+                    className="mt-[8px] w-full rounded-xl border px-[14px] py-[10px] text-sm transition-colors focus:border-primary focus:outline-none"
+                    style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
                     placeholder="Court numbers e.g. 1,2" />
                 </div>
               </div>
@@ -203,8 +209,7 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
           </Section>
         </div>
 
-        {/* Algorithm cards */}
-        <div className="mb-[24px] rounded-2xl bg-white p-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] sm:p-[20px]">
+        <div className="card mb-[24px] p-[16px] sm:p-[20px]">
           <Section title="How to pair partners">
             <OptionGrid options={PAIRING} value={pairing} onChange={setPairing} />
           </Section>
@@ -214,8 +219,7 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
           </Section>
         </div>
 
-        {/* Format + Scoring card */}
-        <div className="mb-[24px] rounded-2xl bg-white p-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] sm:p-[20px]">
+        <div className="card mb-[24px] p-[16px] sm:p-[20px]">
           <Section title="Match format">
             <OptionGrid options={FORMAT} value={format} onChange={setFormat}
               cols="grid grid-cols-1 gap-[8px] sm:grid-cols-3" />
@@ -226,10 +230,11 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
               cols="grid grid-cols-1 gap-[8px] sm:grid-cols-2 md:grid-cols-3" />
             {scoring === 'CUSTOM_CAP' && (
               <div className="mt-[12px]">
-                <label className="mb-[6px] block text-[13px] font-medium text-gray-600">Point target</label>
+                <label className="mb-[6px] block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Point target</label>
                 <input type="number" min={1} placeholder="e.g. 25" value={customCap}
                   onChange={(e) => setCustomCap(e.target.value)}
-                  className="w-[120px] rounded-xl border border-gray-200 bg-gray-50/50 px-[14px] py-[10px] text-[14px] text-gray-700 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  className="w-[120px] rounded-xl border px-[14px] py-[12px] text-[16px] focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+                  style={inputStyle} />
               </div>
             )}
           </Section>
@@ -241,25 +246,25 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
         </div>
 
         {error && (
-          <div className="mb-[16px] flex items-center gap-[8px] rounded-xl bg-red-50 px-[14px] py-[12px] text-[13px] text-red-600">
+          <div className="mb-[16px] flex items-center gap-[8px] rounded-xl bg-red-50 px-[14px] py-[12px] text-sm text-red-600">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/><path d="M8 5v3M8 10h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
             {error}
           </div>
         )}
       </form>
 
-      {/* Sticky bottom CTA */}
-      <div className="safe-bottom-bar fixed bottom-0 left-0 right-0 border-t border-gray-100 bg-white/90 px-[16px] py-[12px] backdrop-blur-md">
+      <div className="safe-bottom-bar fixed bottom-0 left-0 right-0 border-t px-[16px] py-[12px]"
+        style={{ borderColor: 'var(--border-default)', backgroundColor: 'color-mix(in srgb, var(--bg-card) 90%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         <div className="mx-auto max-w-[720px]">
           <button onClick={handleSubmit as unknown as React.MouseEventHandler}
             disabled={loading}
-            className="w-full rounded-xl bg-primary py-[14px] text-[14px] font-semibold text-white shadow-[0_2px_8px_rgba(22,163,74,0.25)] transition-all disabled:opacity-40 disabled:shadow-none active:scale-[0.98] active:bg-primary-dark">
+            className="w-full rounded-xl bg-primary py-[14px] text-sm font-semibold text-white shadow-[0_2px_8px_rgba(22,163,74,0.25)] transition-all disabled:opacity-40 disabled:shadow-none active:scale-[0.98] active:bg-primary-dark">
             {loading ? (
               <span className="inline-flex items-center gap-[6px]">
                 <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
-                Creating…
+                Creating...
               </span>
-            ) : 'Create Session & Add Players →'}
+            ) : 'Create Session & Add Players'}
           </button>
         </div>
       </div>

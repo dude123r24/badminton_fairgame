@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ChevronLeft, Minus, Plus } from 'lucide-react'
 
 interface SessionData {
   id: string
@@ -46,6 +47,7 @@ export default function SessionSettingsPage({ params }: { params: { sessionId: s
   const [pairing, setPairing] = useState('')
   const [opponent, setOpponent] = useState('')
   const [scoring, setScoring] = useState('')
+  const [courts, setCourts] = useState(1)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/sessions/${params.sessionId}`)
@@ -55,6 +57,7 @@ export default function SessionSettingsPage({ params }: { params: { sessionId: s
     setPairing(data.pairingAlgorithm)
     setOpponent(data.opponentAlgorithm)
     setScoring(data.scoringSystem)
+    setCourts(data.courts)
     setLoading(false)
   }, [params.sessionId, router])
 
@@ -70,6 +73,7 @@ export default function SessionSettingsPage({ params }: { params: { sessionId: s
         pairingAlgorithm: pairing,
         opponentAlgorithm: opponent,
         scoringSystem: scoring,
+        courts,
       }),
     })
     setSaving(false)
@@ -80,27 +84,56 @@ export default function SessionSettingsPage({ params }: { params: { sessionId: s
   }
 
   if (loading || !session) {
-    return <main className="flex min-h-screen items-center justify-center"><p className="text-[14px] text-gray-400">Loading…</p></main>
+    return <main className="flex min-h-screen items-center justify-center"><p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</p></main>
   }
 
   const isAdmin = session.userRole === 'OWNER' || session.userRole === 'ADMIN'
   if (!isAdmin) { router.push(`/session/${params.sessionId}`); return null }
 
   return (
-    <main className="mx-auto max-w-[640px] px-[16px] pb-[80px] pt-[20px]">
+    <main className="mx-auto max-w-[640px] px-[16px] pb-[100px] pt-[16px] sm:px-[24px]">
       <Link href={`/session/${params.sessionId}`}
-        className="mb-[20px] inline-flex items-center gap-[4px] text-[13px] font-medium text-gray-400 transition-colors hover:text-gray-600"
+        className="mb-[16px] inline-flex min-h-[44px] items-center gap-[6px] text-sm font-medium transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <ChevronLeft size={16} />
         Back to session
       </Link>
 
-      <h1 className="mb-[4px] text-[22px] font-bold tracking-tight text-gray-900">Session Settings</h1>
-      <p className="mb-[24px] text-[13px] text-gray-400">
+      <h1 className="mb-[4px] text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Session Settings</h1>
+      <p className="mb-[24px] text-sm" style={{ color: 'var(--text-tertiary)' }}>
         {session.name ?? 'Unnamed session'} · {session.status}
       </p>
 
       <form onSubmit={save} className="space-y-[20px]">
+        {/* Courts */}
+        <div className="card p-[16px]">
+          <label className="mb-[8px] block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Number of Courts</label>
+          <div className="flex items-center gap-[16px]">
+            <button
+              type="button"
+              onClick={() => setCourts(c => Math.max(1, c - 1))}
+              disabled={courts <= 1}
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-xl border transition-all active:scale-95 disabled:opacity-30"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            >
+              <Minus size={18} />
+            </button>
+            <span className="min-w-[40px] text-center text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+              {courts}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCourts(c => Math.min(20, c + 1))}
+              disabled={courts >= 20}
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-xl border transition-all active:scale-95 disabled:opacity-30"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+        </div>
+
         <SettingSelect label="Pairing Algorithm" options={pairingOptions} value={pairing} onChange={setPairing} />
         <SettingSelect label="Opponent Selection" options={opponentOptions} value={opponent} onChange={setOpponent} />
         <SettingSelect label="Scoring System" options={scoringOptions} value={scoring} onChange={setScoring} />
@@ -122,16 +155,17 @@ function SettingSelect({ label, options, value, onChange }: {
   onChange: (v: string) => void
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-[16px] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <label className="mb-[8px] block text-[13px] font-semibold text-gray-900">{label}</label>
+    <div className="card p-[16px]">
+      <label className="mb-[8px] block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</label>
       <div className="flex flex-wrap gap-[6px]">
         {options.map((opt) => (
           <button key={opt.value} type="button" onClick={() => onChange(opt.value)}
-            className={`rounded-lg px-[12px] py-[8px] text-[13px] font-medium transition-all ${
+            className={`min-h-[40px] rounded-xl px-[14px] py-[10px] text-sm font-medium transition-all ${
               value === opt.value
                 ? 'bg-primary/[0.1] text-primary ring-1 ring-primary/20'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                : ''
             }`}
+            style={value !== opt.value ? { backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' } : undefined}
           >
             {opt.label}
           </button>

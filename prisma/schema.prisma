@@ -360,6 +360,7 @@ enum GameType {
 enum GameStatus {
   IN_PROGRESS
   COMPLETED
+  QUEUED
 }
 
 model GameSet {

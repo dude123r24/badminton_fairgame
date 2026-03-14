@@ -16,7 +16,7 @@ const roleLabel: Record<string, string> = { OWNER: 'Owner', ADMIN: 'Admin', MEMB
 const roleColor: Record<string, string> = {
   OWNER: 'bg-primary/10 text-primary',
   ADMIN: 'bg-amber-50 text-amber-600',
-  MEMBER: 'bg-gray-100 text-gray-500',
+  MEMBER: '',
 }
 
 export default function MembersPage({ params }: { params: { clubId: string } }) {
@@ -82,7 +82,7 @@ export default function MembersPage({ params }: { params: { clubId: string } }) 
   }
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center"><p className="text-[14px] text-gray-400">Loading…</p></main>
+    return <main className="flex min-h-screen items-center justify-center"><p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</p></main>
   }
 
   const isOwner = userRole === 'OWNER'
@@ -92,48 +92,48 @@ export default function MembersPage({ params }: { params: { clubId: string } }) 
   const regular = members.filter((m) => m.role === 'MEMBER')
 
   return (
-    <main className="mx-auto max-w-[640px] px-[16px] pb-[80px] pt-[20px]">
+    <main className="mx-auto max-w-[640px] px-[16px] pb-[100px] pt-[16px] sm:px-[24px]">
       <Link
         href={`/club/${params.clubId}`}
-        className="mb-[20px] inline-flex items-center gap-[4px] text-[13px] font-medium text-gray-400 transition-colors hover:text-gray-600"
+        className="mb-[16px] inline-flex min-h-[44px] items-center gap-[6px] text-sm font-medium transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         Back to club
       </Link>
 
       <div className="mb-[24px]">
-        <h1 className="text-[22px] font-bold tracking-tight text-gray-900">Members</h1>
-        <p className="mt-[2px] text-[13px] text-gray-400">{members.length} member{members.length !== 1 ? 's' : ''}</p>
+        <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Members</h1>
+        <p className="mt-[4px] text-sm" style={{ color: 'var(--text-tertiary)' }}>{members.length} member{members.length !== 1 ? 's' : ''}</p>
       </div>
 
-      {/* Add member form */}
       {isAdmin && (
         <form onSubmit={addMember} className="mb-[24px]">
           <div className="flex gap-[8px]">
             <input
               type="email"
-              placeholder="Add by email address…"
+              placeholder="Add by email address..."
               value={email}
               onChange={(e) => { setEmail(e.target.value); setAddError('') }}
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-[14px] text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+              className="flex-1 rounded-xl border px-[14px] py-[12px] text-[16px] transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
               required
             />
             <button
               type="submit"
               disabled={addLoading || !email.trim()}
-              className="shrink-0 rounded-xl bg-primary px-[16px] py-[10px] text-[13px] font-semibold text-white transition-all disabled:opacity-40 active:scale-[0.97]"
+              className="shrink-0 rounded-xl bg-primary px-[16px] py-[12px] text-sm font-semibold text-white transition-all disabled:opacity-40 active:scale-[0.97]"
             >
-              {addLoading ? '…' : 'Add'}
+              {addLoading ? '...' : 'Add'}
             </button>
           </div>
           {addError && (
-            <p className="mt-[6px] text-[12px] text-red-500">{addError}</p>
+            <p className="mt-[6px] text-xs text-red-500">{addError}</p>
           )}
         </form>
       )}
 
-      {/* Member list */}
-      <div className="space-y-[2px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="card space-y-[2px] overflow-hidden">
         {owner && <MemberRow member={owner} isOwner={false} isSelf={false} actionBusy={actionBusy} onUpdateRole={() => {}} onRemove={() => {}} />}
         {admins.map((m) => (
           <MemberRow key={m.id} member={m} isOwner={isOwner} isSelf={false} actionBusy={actionBusy}
@@ -166,34 +166,33 @@ function MemberRow({ member, isOwner, isSelf: _isSelf, actionBusy, onUpdateRole,
   const initial = member.user.name?.charAt(0)?.toUpperCase() ?? member.user.email.charAt(0).toUpperCase()
 
   return (
-    <div className="relative flex items-center gap-[12px] px-[16px] py-[12px] transition-colors hover:bg-gray-50/50">
-      {/* Avatar */}
+    <div className="relative flex items-center gap-[12px] px-[16px] py-[12px] transition-colors" style={{ backgroundColor: 'transparent' }}>
       {member.user.image ? (
-        <img src={member.user.image} alt="" className="h-[36px] w-[36px] rounded-full object-cover" />
+        <img src={member.user.image} alt={`${member.user.name ?? 'Member'} avatar`} className="h-[36px] w-[36px] rounded-full object-cover" />
       ) : (
-        <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-gray-100 text-[14px] font-semibold text-gray-500">
+        <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+          style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
           {initial}
         </div>
       )}
 
-      {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-[6px]">
-          <p className="truncate text-[14px] font-medium text-gray-900">{member.user.name ?? 'Unnamed'}</p>
-          <span className={`shrink-0 rounded-full px-[7px] py-[1px] text-[10px] font-semibold ${roleColor[member.role]}`}>
+          <p className="truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{member.user.name ?? 'Unnamed'}</p>
+          <span className={`shrink-0 rounded-full px-[8px] py-[2px] text-xs font-semibold ${roleColor[member.role]}`}
+            style={!roleColor[member.role] ? { backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' } : undefined}>
             {roleLabel[member.role]}
           </span>
         </div>
-        <p className="truncate text-[12px] text-gray-400">{member.user.email}</p>
+        <p className="truncate text-xs" style={{ color: 'var(--text-tertiary)' }}>{member.user.email}</p>
       </div>
 
-      {/* Actions */}
       {canManage && (
         <div className="relative shrink-0">
           <button
             onClick={() => setShowMenu(!showMenu)}
             disabled={busy}
-            className="flex h-[32px] w-[32px] items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40"
+            className="icon-btn h-[44px] w-[44px] disabled:opacity-40"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="3" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="13" r="1.2" fill="currentColor"/></svg>
           </button>
@@ -201,11 +200,13 @@ function MemberRow({ member, isOwner, isSelf: _isSelf, actionBusy, onUpdateRole,
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-[36px] z-20 w-[180px] overflow-hidden rounded-xl border border-gray-100 bg-white py-[4px] shadow-lg">
+              <div className="absolute right-0 top-[36px] z-20 w-[180px] overflow-hidden rounded-xl border py-[4px]"
+                style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)', boxShadow: 'var(--shadow-elevated)' }}>
                 {member.role === 'MEMBER' ? (
                   <button
                     onClick={() => { onUpdateRole('ADMIN'); setShowMenu(false) }}
-                    className="flex w-full items-center gap-[8px] px-[12px] py-[8px] text-left text-[13px] text-gray-700 hover:bg-gray-50"
+                    className="flex w-full min-h-[44px] items-center gap-[8px] px-[14px] text-left text-sm transition-colors"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 3 3.5.5-2.5 2.5.5 3.5L7 9l-3 1.5.5-3.5L2 4.5 5.5 4 7 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
                     Make Admin
@@ -213,16 +214,17 @@ function MemberRow({ member, isOwner, isSelf: _isSelf, actionBusy, onUpdateRole,
                 ) : (
                   <button
                     onClick={() => { onUpdateRole('MEMBER'); setShowMenu(false) }}
-                    className="flex w-full items-center gap-[8px] px-[12px] py-[8px] text-left text-[13px] text-gray-700 hover:bg-gray-50"
+                    className="flex w-full min-h-[44px] items-center gap-[8px] px-[14px] text-left text-sm transition-colors"
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11 5L5.5 10.5 3 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Make Member
                   </button>
                 )}
-                <div className="mx-[8px] border-t border-gray-100" />
+                <div className="mx-[8px] border-t" style={{ borderColor: 'var(--border-default)' }} />
                 <button
                   onClick={() => { onRemove(); setShowMenu(false) }}
-                  className="flex w-full items-center gap-[8px] px-[12px] py-[8px] text-left text-[13px] text-red-500 hover:bg-red-50"
+                  className="flex w-full min-h-[44px] items-center gap-[8px] px-[14px] text-left text-sm text-red-500 transition-colors hover:bg-red-50"
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h10M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4M11 4v7.5a1 1 0 01-1 1H4a1 1 0 01-1-1V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Remove

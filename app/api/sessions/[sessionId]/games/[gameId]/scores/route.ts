@@ -79,7 +79,9 @@ export async function POST(
     (teamAScore >= 20 && teamBScore >= 20) ||
     (teamAScore >= 14 && teamBScore >= 14 && game.sessionId.length > 0)
 
-  // Create the set and mark game complete in a transaction
+  const freedCourtNumber = game.courtNumber
+
+  // Create the set, mark game complete, and promote queued game if any
   const [gameSet] = await prisma.$transaction(async (tx) => {
     const set = await tx.gameSet.create({
       data: {
@@ -97,6 +99,18 @@ export async function POST(
       where: { id: params.gameId },
       data: { status: 'COMPLETED', endedAt: new Date() },
     })
+
+    // Auto-promote the oldest queued game to the freed court
+    const nextQueued = await tx.game.findFirst({
+      where: { sessionId: params.sessionId, status: 'QUEUED' },
+      orderBy: { startedAt: 'asc' },
+    })
+    if (nextQueued) {
+      await tx.game.update({
+        where: { id: nextQueued.id },
+        data: { status: 'IN_PROGRESS', courtNumber: freedCourtNumber, startedAt: new Date() },
+      })
+    }
 
     return [set]
   })

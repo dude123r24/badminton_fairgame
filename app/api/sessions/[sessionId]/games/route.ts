@@ -80,14 +80,14 @@ export async function POST(
     )
   }
 
-  // Get available players not already in an in-progress game
-  const inProgressGamePlayerIds = await prisma.gamePlayer.findMany({
+  // Get players already in an active or queued game
+  const busyGamePlayerIds = await prisma.gamePlayer.findMany({
     where: {
-      game: { sessionId: params.sessionId, status: 'IN_PROGRESS' },
+      game: { sessionId: params.sessionId, status: { in: ['IN_PROGRESS', 'QUEUED'] } },
     },
     select: { sessionPlayerId: true },
   })
-  const busyIds = new Set(inProgressGamePlayerIds.map((gp) => gp.sessionPlayerId))
+  const busyIds = new Set(busyGamePlayerIds.map((gp) => gp.sessionPlayerId))
 
   const availablePlayers = await prisma.sessionPlayer.findMany({
     where: {
@@ -107,7 +107,6 @@ export async function POST(
     )
   }
 
-  // Build Player objects for algorithm, fetching PlayerProfile for ratings
   const profileMap = new Map<string, { rating: number; class: 'AMATEUR' | 'INTERMEDIATE' | 'ADVANCED' }>()
   const userIds = availablePlayers
     .filter((p) => p.userId)
@@ -122,7 +121,7 @@ export async function POST(
   const players: Player[] = availablePlayers.map((sp) => {
     const profile = sp.userId ? profileMap.get(sp.userId) : undefined
     return {
-      id: sp.id, // use sessionPlayerId as player id for matching
+      id: sp.id,
       name: sp.user?.name ?? sp.guestName ?? 'Guest',
       rating: profile?.rating ?? 1500,
       class: profile?.class ?? 'INTERMEDIATE',
@@ -130,48 +129,52 @@ export async function POST(
     }
   })
 
+  // Find the first free court, or queue if all occupied
+  const inProgressGames = await prisma.game.findMany({
+    where: { sessionId: params.sessionId, status: 'IN_PROGRESS' },
+    select: { courtNumber: true },
+  })
+  const occupiedCourts = new Set(inProgressGames.map((g) => g.courtNumber))
+  const courtNums = s.courtNumbers
+  const freeCourt = courtNums.find((c: number) => !occupiedCourts.has(c))
+
+  // Generate exactly one match
   const pairs = generatePairs(players, s.pairingAlgorithm)
-  const matches = generateMatches(pairs, s.courts, s.opponentAlgorithm, players)
+  const matches = generateMatches(pairs, s.courts, s.opponentAlgorithm, players, 1)
 
   if (matches.length === 0) {
     return NextResponse.json(
-      { error: 'Could not generate any matches with available players' },
+      { error: 'Could not generate a match with available players' },
       { status: 400 }
     )
   }
 
-  // Assign court numbers from the session's courtNumbers array
-  const courtNums = s.courtNumbers
-
-  const games = await prisma.$transaction(
-    matches.map((match, idx) =>
-      prisma.game.create({
-        data: {
-          sessionId: params.sessionId,
-          courtNumber: courtNums[idx] ?? idx + 1,
-          type: 'DOUBLES',
-          status: 'IN_PROGRESS',
-          gamePlayers: {
-            create: [
-              { sessionPlayerId: match.teamA.player1.id, team: 'A' },
-              { sessionPlayerId: match.teamA.player2.id, team: 'A' },
-              { sessionPlayerId: match.teamB.player1.id, team: 'B' },
-              { sessionPlayerId: match.teamB.player2.id, team: 'B' },
-            ],
-          },
-        },
+  const match = matches[0]
+  const game = await prisma.game.create({
+    data: {
+      sessionId: params.sessionId,
+      courtNumber: freeCourt ?? 0,
+      type: 'DOUBLES',
+      status: freeCourt ? 'IN_PROGRESS' : 'QUEUED',
+      gamePlayers: {
+        create: [
+          { sessionPlayerId: match.teamA.player1.id, team: 'A' },
+          { sessionPlayerId: match.teamA.player2.id, team: 'A' },
+          { sessionPlayerId: match.teamB.player1.id, team: 'B' },
+          { sessionPlayerId: match.teamB.player2.id, team: 'B' },
+        ],
+      },
+    },
+    include: {
+      gamePlayers: {
         include: {
-          gamePlayers: {
-            include: {
-              sessionPlayer: {
-                include: { user: { select: { id: true, name: true } } },
-              },
-            },
+          sessionPlayer: {
+            include: { user: { select: { id: true, name: true } } },
           },
         },
-      })
-    )
-  )
+      },
+    },
+  })
 
-  return NextResponse.json(games, { status: 201 })
+  return NextResponse.json(game, { status: 201 })
 }

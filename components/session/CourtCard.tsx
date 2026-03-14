@@ -18,90 +18,142 @@ interface GameSet {
 interface Game {
   id: string
   courtNumber: number
-  status: 'IN_PROGRESS' | 'COMPLETED'
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'QUEUED'
   gamePlayers: GamePlayer[]
   sets: GameSet[]
 }
 
 interface CourtCardProps {
-  game: Game
+  game?: Game
+  courtNumber: number
   isAdmin: boolean
   onEnterScore: (game: Game) => void
+  isEmpty?: boolean
 }
 
 function shortName(gp: GamePlayer): string {
   return gp.sessionPlayer.user?.name?.split(' ')[0] ?? gp.sessionPlayer.guestName ?? 'Guest'
 }
 
-export default function CourtCard({ game, isAdmin, onEnterScore }: CourtCardProps) {
+function EmptyCourt({ courtNumber }: { courtNumber: number }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed" style={{ borderColor: 'var(--border-default)' }}>
+      <div className="flex items-center justify-between px-[14px] py-[8px]">
+        <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+          Court {courtNumber}
+        </span>
+      </div>
+      <div className="flex h-[80px] items-center justify-center">
+        <span className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
+          Available
+        </span>
+      </div>
+    </div>
+  )
+}
+
+export default function CourtCard({ game, courtNumber, isAdmin, onEnterScore, isEmpty }: CourtCardProps) {
+  if (isEmpty || !game) return <EmptyCourt courtNumber={courtNumber} />
+
   const teamA = game.gamePlayers.filter((gp) => gp.team === 'A')
   const teamB = game.gamePlayers.filter((gp) => gp.team === 'B')
   const score = game.sets[game.sets.length - 1]
   const isPlaying = game.status === 'IN_PROGRESS'
+  const isQueued = game.status === 'QUEUED'
+  const isTappable = isAdmin && isPlaying
 
-  const aNamesStr = teamA.map(shortName).join(' & ')
-  const bNamesStr = teamB.map(shortName).join(' & ')
+  const Wrapper = isTappable ? 'button' : 'div'
 
   return (
-    <div className={`overflow-hidden rounded-xl border ${
-      isPlaying
-        ? 'border-primary/20 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]'
-        : 'border-gray-100 bg-gray-50/80'
-    }`}>
-      {/* Row 1: Court label + live badge + score button */}
-      <div className="flex items-center justify-between px-[12px] py-[8px]">
+    <Wrapper
+      {...(isTappable ? { onClick: () => onEnterScore(game), type: 'button' as const } : {})}
+      className={`relative w-full overflow-hidden rounded-2xl text-left transition-transform ${isTappable ? 'cursor-pointer active:scale-[0.97]' : ''}`}
+      style={{
+        backgroundColor: isQueued ? 'var(--bg-card)' : '#1a5e2a',
+        border: isQueued ? '1px dashed var(--border-default)' : 'none',
+      }}
+    >
+      {/* Court surface with lines */}
+      {!isQueued && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(180deg, #1a6e30 0%, #1a5e2a 50%, #1a6e30 100%)',
+          }} />
+          <div className="absolute inset-[6px] rounded-lg border-[1.5px] border-white/30" />
+          <div className="absolute left-1/2 top-[6px] bottom-[6px] w-[1.5px] -translate-x-1/2 bg-white/40" />
+          <div className="absolute left-[25%] top-[6px] bottom-[6px] w-[1px] bg-white/15" />
+          <div className="absolute right-[25%] top-[6px] bottom-[6px] w-[1px] bg-white/15" />
+          <div className="absolute top-1/2 left-[6px] right-[6px] h-[1px] -translate-y-1/2 bg-white/15" />
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="relative flex items-center justify-between px-[14px] py-[8px]">
         <div className="flex items-center gap-[8px]">
-          <span className={`text-[11px] font-bold tabular-nums ${isPlaying ? 'text-gray-500' : 'text-gray-400'}`}>
-            Ct {game.courtNumber}
+          <span className="text-xs font-bold tabular-nums" style={{
+            color: isQueued ? 'var(--text-secondary)' : 'rgba(255,255,255,0.8)',
+          }}>
+            {isQueued ? 'Up Next' : `Court ${game.courtNumber}`}
           </span>
           {isPlaying && (
-            <span className="flex items-center gap-[4px]">
-              <span className="relative flex h-[5px] w-[5px]">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-                <span className="relative inline-flex h-[5px] w-[5px] rounded-full bg-primary" />
-              </span>
+            <span className="relative flex h-[6px] w-[6px]">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
+              <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-white" />
             </span>
           )}
         </div>
-        {isAdmin && isPlaying && (
-          <button
-            onClick={() => onEnterScore(game)}
-            className="flex items-center gap-[4px] rounded-lg bg-primary/[0.08] px-[10px] py-[4px] text-[11px] font-semibold text-primary transition-colors hover:bg-primary/[0.15] active:scale-95"
-          >
-            Score
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3.5 2l3.5 3-3.5 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
+        {isTappable && (
+          <span className="rounded-full bg-white/15 px-[10px] py-[3px] text-[10px] font-semibold uppercase tracking-wide text-white/70">
+            Tap for score
+          </span>
         )}
       </div>
 
-      {/* Row 2: Team A  vs  Team B with scores */}
-      <div className="flex items-center gap-[6px] px-[12px] pb-[10px]">
-        <span className={`flex-1 truncate text-right text-[13px] leading-tight ${
-          score?.winner === 'A' ? 'font-semibold text-gray-900' : isPlaying ? 'font-medium text-gray-700' : 'text-gray-500'
-        }`}>
-          {aNamesStr}
-        </span>
+      {/* Teams */}
+      <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-[4px] px-[14px] pb-[14px] pt-[4px]">
+        <div className="text-center">
+          {teamA.map((gp) => (
+            <p key={gp.id} className="truncate text-sm font-semibold leading-[1.6]" style={{
+              color: isQueued ? 'var(--text-primary)' : 'rgba(255,255,255,0.95)',
+            }}>
+              {shortName(gp)}
+            </p>
+          ))}
+        </div>
 
-        {score ? (
-          <div className="flex shrink-0 items-center gap-[3px]">
-            <span className={`min-w-[20px] text-center text-[15px] font-bold tabular-nums leading-none ${
-              score.winner === 'A' ? 'text-primary' : 'text-gray-300'
-            }`}>{score.teamAScore}</span>
-            <span className="text-[10px] text-gray-300">–</span>
-            <span className={`min-w-[20px] text-center text-[15px] font-bold tabular-nums leading-none ${
-              score.winner === 'B' ? 'text-primary' : 'text-gray-300'
-            }`}>{score.teamBScore}</span>
-          </div>
-        ) : (
-          <span className="shrink-0 text-[11px] font-medium text-gray-300">vs</span>
-        )}
+        <div className="flex flex-col items-center">
+          {score ? (
+            <div className="flex items-center gap-[4px]">
+              <span className="min-w-[24px] text-center text-lg font-bold tabular-nums leading-none" style={{
+                color: score.winner === 'A'
+                  ? (isQueued ? '#16a34a' : '#86efac')
+                  : (isQueued ? 'var(--text-tertiary)' : 'rgba(255,255,255,0.4)'),
+              }}>{score.teamAScore}</span>
+              <span className="text-xs" style={{ color: isQueued ? 'var(--text-tertiary)' : 'rgba(255,255,255,0.3)' }}>-</span>
+              <span className="min-w-[24px] text-center text-lg font-bold tabular-nums leading-none" style={{
+                color: score.winner === 'B'
+                  ? (isQueued ? '#16a34a' : '#86efac')
+                  : (isQueued ? 'var(--text-tertiary)' : 'rgba(255,255,255,0.4)'),
+              }}>{score.teamBScore}</span>
+            </div>
+          ) : (
+            <span className="rounded-full px-[8px] py-[2px] text-[10px] font-bold uppercase tracking-wider" style={{
+              color: isQueued ? 'var(--text-tertiary)' : 'rgba(255,255,255,0.4)',
+              backgroundColor: isQueued ? 'transparent' : 'rgba(255,255,255,0.08)',
+            }}>vs</span>
+          )}
+        </div>
 
-        <span className={`flex-1 truncate text-[13px] leading-tight ${
-          score?.winner === 'B' ? 'font-semibold text-gray-900' : isPlaying ? 'font-medium text-gray-700' : 'text-gray-500'
-        }`}>
-          {bNamesStr}
-        </span>
+        <div className="text-center">
+          {teamB.map((gp) => (
+            <p key={gp.id} className="truncate text-sm font-semibold leading-[1.6]" style={{
+              color: isQueued ? 'var(--text-primary)' : 'rgba(255,255,255,0.95)',
+            }}>
+              {shortName(gp)}
+            </p>
+          ))}
+        </div>
       </div>
-    </div>
+    </Wrapper>
   )
 }

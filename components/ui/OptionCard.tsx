@@ -22,23 +22,27 @@ export default function OptionCard({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`group relative flex w-full items-start gap-[10px] rounded-xl border-[1.5px] px-[12px] py-[10px] text-left transition-all duration-150 active:scale-[0.98] sm:flex-col sm:items-stretch sm:gap-0 sm:px-[14px] sm:py-[12px] ${
+      className={`group relative flex w-full items-start gap-[12px] rounded-2xl border-[1.5px] px-[14px] py-[14px] text-left transition-all duration-150 active:scale-[0.98] sm:flex-col sm:items-stretch sm:gap-0 sm:px-[16px] sm:py-[14px] ${
         selected
           ? 'border-primary bg-primary/[0.04] shadow-[0_0_0_1px_rgba(22,163,74,0.15)]'
-          : 'border-gray-200 bg-white hover:border-primary/40 hover:shadow-sm'
+          : 'hover:shadow-sm'
       } ${disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+      style={{
+        borderColor: selected ? undefined : 'var(--border-default)',
+        backgroundColor: selected ? undefined : 'var(--bg-card)',
+      }}
     >
       {selected && (
-        <span className="absolute right-[8px] top-[8px] flex h-[18px] w-[18px] items-center justify-center rounded-full bg-primary text-[10px] text-white">
+        <span className="absolute right-[10px] top-[10px] flex h-[20px] w-[20px] items-center justify-center rounded-full bg-primary text-xs text-white">
           ✓
         </span>
       )}
-      <span className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg bg-gray-50 text-[18px] leading-none group-hover:bg-gray-100 sm:mb-[8px]">
+      <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-xl text-[20px] leading-none sm:mb-[8px]" style={{ backgroundColor: 'var(--bg-hover)' }}>
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold leading-snug text-gray-900">{title}</span>
-        <span className="mt-[2px] block text-[11px] leading-snug text-gray-400">
+        <span className="block text-sm font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <span className="mt-[3px] block text-xs leading-snug" style={{ color: 'var(--text-tertiary)' }}>
           {description}
         </span>
       </span>

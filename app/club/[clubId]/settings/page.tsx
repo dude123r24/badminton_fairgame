@@ -89,22 +89,23 @@ export default function SettingsPage({ params }: { params: { clubId: string } })
   }
 
   if (loading || !club) {
-    return <main className="flex min-h-screen items-center justify-center"><p className="text-[14px] text-gray-400">Loading…</p></main>
+    return <main className="flex min-h-screen items-center justify-center"><p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</p></main>
   }
 
   if (club.userRole !== 'OWNER') { router.push(`/club/${params.clubId}`); return null }
 
   return (
-    <main className="mx-auto max-w-[640px] px-[16px] pb-[80px] pt-[20px]">
+    <main className="mx-auto max-w-[640px] px-[16px] pb-[100px] pt-[16px] sm:px-[24px]">
       <Link
         href={`/club/${params.clubId}`}
-        className="mb-[20px] inline-flex items-center gap-[4px] text-[13px] font-medium text-gray-400 transition-colors hover:text-gray-600"
+        className="mb-[16px] inline-flex min-h-[44px] items-center gap-[6px] text-sm font-medium transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         Back to club
       </Link>
 
-      <h1 className="mb-[24px] text-[22px] font-bold tracking-tight text-gray-900">Club Settings</h1>
+      <h1 className="mb-[24px] text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Club Settings</h1>
 
       <form onSubmit={save} className="space-y-[24px]">
         {/* Basic info */}
@@ -114,7 +115,8 @@ export default function SettingsPage({ params }: { params: { clubId: string } })
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-[14px] text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+              className="w-full rounded-xl border px-[14px] py-[12px] text-[16px] transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
               required
             />
           </FieldGroup>
@@ -124,7 +126,8 @@ export default function SettingsPage({ params }: { params: { clubId: string } })
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Melbourne Sports Centre"
-              className="w-full rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-[14px] text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+              className="w-full rounded-xl border px-[14px] py-[12px] text-[16px] transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
             />
           </FieldGroup>
           <FieldGroup label="Default Courts">
@@ -134,31 +137,32 @@ export default function SettingsPage({ params }: { params: { clubId: string } })
               max={20}
               value={courts}
               onChange={(e) => setCourts(parseInt(e.target.value, 10) || 1)}
-              className="w-[80px] rounded-xl border border-gray-200 bg-white px-[14px] py-[10px] text-center text-[14px] text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+              className="w-[100px] rounded-xl border px-[14px] py-[12px] text-center text-[16px] transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
             />
           </FieldGroup>
         </SettingsSection>
 
         {/* Pairing */}
         <SettingsSection title="Pairing Algorithm">
-          <p className="mb-[10px] text-[12px] text-gray-400">How partners are assigned each round</p>
+          <p className="mb-[10px] text-xs" style={{ color: 'var(--text-tertiary)' }}>How partners are assigned each round</p>
           <RadioGroup options={pairingOptions} value={pairing} onChange={setPairing} name="pairing" />
         </SettingsSection>
 
         {/* Opponent */}
         <SettingsSection title="Opponent Selection">
-          <p className="mb-[10px] text-[12px] text-gray-400">How opposing teams are matched</p>
+          <p className="mb-[10px] text-xs" style={{ color: 'var(--text-tertiary)' }}>How opposing teams are matched</p>
           <RadioGroup options={opponentOptions} value={opponent} onChange={setOpponent} name="opponent" />
         </SettingsSection>
 
         {/* Scoring */}
         <SettingsSection title="Scoring System">
-          <p className="mb-[10px] text-[12px] text-gray-400">Default scoring for new sessions</p>
+          <p className="mb-[10px] text-xs" style={{ color: 'var(--text-tertiary)' }}>Default scoring for new sessions</p>
           <RadioGroup options={scoringOptions} value={scoring} onChange={setScoring} name="scoring" />
         </SettingsSection>
 
         {/* Save */}
-        <div className="sticky bottom-0 border-t border-gray-100 bg-[#F7F8FA]/90 py-[16px] backdrop-blur-md">
+        <div className="sticky bottom-0 border-t py-[16px]" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-app)' }}>
           <button
             type="submit"
             disabled={saving}
@@ -174,8 +178,8 @@ export default function SettingsPage({ params }: { params: { clubId: string } })
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <h2 className="mb-[16px] text-[15px] font-semibold text-gray-900">{title}</h2>
+    <section className="card p-[20px]">
+      <h2 className="mb-[16px] text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
       {children}
     </section>
   )
@@ -184,7 +188,7 @@ function SettingsSection({ title, children }: { title: string; children: React.R
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-[14px] last:mb-0">
-      <label className="mb-[6px] block text-[12px] font-medium text-gray-500">{label}</label>
+      <label className="mb-[6px] block text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</label>
       {children}
     </div>
   )
@@ -201,11 +205,12 @@ function RadioGroup({ options, value, onChange, name }: {
       {options.map((opt) => (
         <label
           key={opt.value}
-          className={`flex cursor-pointer items-center gap-[12px] rounded-xl px-[14px] py-[10px] transition-colors ${
+          className={`flex min-h-[44px] cursor-pointer items-center gap-[12px] rounded-xl px-[14px] py-[12px] transition-colors ${
             value === opt.value
               ? 'bg-primary/[0.06] ring-1 ring-primary/20'
-              : 'hover:bg-gray-50'
+              : ''
           }`}
+          style={value !== opt.value ? { backgroundColor: 'transparent' } : undefined}
         >
           <input
             type="radio"
@@ -213,11 +218,12 @@ function RadioGroup({ options, value, onChange, name }: {
             value={opt.value}
             checked={value === opt.value}
             onChange={() => onChange(opt.value)}
-            className="h-[16px] w-[16px] border-gray-300 text-primary focus:ring-primary/20"
+            className="h-[18px] w-[18px] text-primary focus:ring-primary/20"
+            style={{ borderColor: 'var(--border-default)' }}
           />
           <div>
-            <p className="text-[13px] font-medium text-gray-900">{opt.label}</p>
-            <p className="text-[11px] text-gray-400">{opt.desc}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{opt.label}</p>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{opt.desc}</p>
           </div>
         </label>
       ))}

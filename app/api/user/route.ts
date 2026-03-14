@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 const updateUserSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  theme: z.enum(['light', 'dark', 'system']).optional(),
+  theme: z.enum(['light', 'dark', 'system', 'google-glass', 'apple-glass']).optional(),
 })
 
 export async function GET() {

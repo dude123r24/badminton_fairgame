@@ -8,6 +8,7 @@ import { z } from 'zod'
 const updateSessionSchema = z.object({
   status: z.enum(['UPCOMING', 'ACTIVE', 'ENDED']).optional(),
   name: z.string().max(100).optional(),
+  courts: z.number().int().min(1).max(20).optional(),
   pairingAlgorithm: z.enum(['RANDOM', 'EQUAL_WEIGHT', 'FIXED', 'PER_GAME']).optional(),
   opponentAlgorithm: z.enum(['RANDOM', 'EQUAL_WEIGHT', 'OPPONENT_WEIGHT', 'PLAY_WITHIN_CLASS']).optional(),
   scoringSystem: z.enum(['RALLY_21', 'RALLY_21_SETTING', 'RALLY_21_NO_SETTING', 'SHORT_15', 'SHORT_7', 'CUSTOM_CAP', 'SERVICE_OVER_15']).optional(),
@@ -94,9 +95,25 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
+  const data: Record<string, unknown> = { ...parsed.data }
+  if (parsed.data.courts) {
+    data.courtNumbers = Array.from({ length: parsed.data.courts }, (_, i) => i + 1)
+  }
+
+  // When ending a session, write off any unfinished games as no-result
+  if (parsed.data.status === 'ENDED') {
+    await prisma.game.updateMany({
+      where: {
+        sessionId: params.sessionId,
+        status: { in: ['IN_PROGRESS', 'QUEUED'] },
+      },
+      data: { status: 'COMPLETED', endedAt: new Date() },
+    })
+  }
+
   const updated = await prisma.clubSession.update({
     where: { id: params.sessionId },
-    data: parsed.data,
+    data,
   })
 
   return NextResponse.json(updated)

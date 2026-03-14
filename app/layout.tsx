@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import SessionProvider from '@/components/SessionProvider'
 import Navbar from '@/components/Navbar'
+import BottomTabBar from '@/components/BottomTabBar'
 import ThemeProvider from '@/components/ThemeProvider'
 
 export const metadata: Metadata = {
@@ -26,11 +27,12 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
-      <body className="bg-[#F7F8FA] font-sans text-gray-700 antialiased">
+      <body className="font-sans antialiased">
         <SessionProvider>
           <ThemeProvider>
             <Navbar />
             {children}
+            <BottomTabBar />
           </ThemeProvider>
         </SessionProvider>
       </body>

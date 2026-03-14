@@ -7,24 +7,95 @@
     --bg-app: #F7F8FA;
     --bg-card: #FFFFFF;
     --bg-elevated: #FFFFFF;
+    --bg-hover: #F3F4F6;
+    --bg-active: #E5E7EB;
     --border-default: #E5E7EB;
+    --border-subtle: #F3F4F6;
     --text-primary: #111827;
     --text-secondary: #6B7280;
     --text-tertiary: #9CA3AF;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+    --shadow-elevated: 0 4px 16px rgba(0,0,0,0.08);
+    --ring-focus: rgba(22, 163, 74, 0.25);
+
+    --glass-enabled: 0;
+    --glass-blur: 0px;
+    --glass-saturate: 100%;
+    --glass-card-bg: var(--bg-card);
+    --glass-card-border: var(--border-default);
+    --glass-nav-bg: color-mix(in srgb, var(--bg-card) 80%, transparent);
+    --app-bg-image: none;
   }
 
+  /* ── Dark ── */
   html.dark {
     --bg-app: #0F1117;
     --bg-card: #1A1D27;
     --bg-elevated: #222530;
+    --bg-hover: #2D3140;
+    --bg-active: #363B4D;
     --border-default: #2D3140;
+    --border-subtle: #222530;
     --text-primary: #F3F4F6;
     --text-secondary: #9CA3AF;
     --text-tertiary: #6B7280;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-elevated: 0 4px 16px rgba(0,0,0,0.3);
+    --ring-focus: rgba(22, 163, 74, 0.4);
+  }
+
+  /* ── Google Material Glass ── */
+  html.google-glass {
+    --bg-app: #F0ECF5;
+    --bg-card: rgba(255, 255, 255, 0.55);
+    --bg-elevated: rgba(255, 255, 255, 0.7);
+    --bg-hover: rgba(255, 255, 255, 0.4);
+    --bg-active: rgba(255, 255, 255, 0.6);
+    --border-default: rgba(255, 255, 255, 0.5);
+    --border-subtle: rgba(255, 255, 255, 0.3);
+    --text-primary: #1C1B1F;
+    --text-secondary: #49454F;
+    --text-tertiary: #79747E;
+    --shadow-card: 0 2px 8px rgba(103, 80, 164, 0.06), 0 8px 24px rgba(103, 80, 164, 0.04);
+    --shadow-elevated: 0 6px 20px rgba(103, 80, 164, 0.1);
+    --ring-focus: rgba(103, 80, 164, 0.3);
+
+    --glass-enabled: 1;
+    --glass-blur: 20px;
+    --glass-saturate: 140%;
+    --glass-card-bg: rgba(255, 255, 255, 0.55);
+    --glass-card-border: rgba(255, 255, 255, 0.5);
+    --glass-nav-bg: rgba(255, 255, 255, 0.5);
+    --app-bg-image: linear-gradient(135deg, #E8DEF8 0%, #F0ECF5 25%, #FCE4EC 50%, #FFF3E0 75%, #E8F5E9 100%);
+  }
+
+  /* ── Apple Glass ── */
+  html.apple-glass {
+    --bg-app: #0A0A0F;
+    --bg-card: rgba(44, 44, 50, 0.55);
+    --bg-elevated: rgba(58, 58, 64, 0.6);
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(255, 255, 255, 0.1);
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --text-primary: #F5F5F7;
+    --text-secondary: #A1A1A6;
+    --text-tertiary: #6E6E73;
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --ring-focus: rgba(10, 132, 255, 0.4);
+
+    --glass-enabled: 1;
+    --glass-blur: 24px;
+    --glass-saturate: 180%;
+    --glass-card-bg: rgba(44, 44, 50, 0.55);
+    --glass-card-border: rgba(255, 255, 255, 0.1);
+    --glass-nav-bg: rgba(30, 30, 36, 0.6);
+    --app-bg-image: linear-gradient(160deg, #1a1a2e 0%, #0a0a0f 30%, #16213e 60%, #0f3460 100%);
   }
 
   * {
-    @apply border-neutral/20;
+    @apply border-[var(--border-default)];
   }
 
   html {
@@ -33,12 +104,12 @@
 
   body {
     @apply h-full;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  html.dark body {
     background-color: var(--bg-app);
+    background-image: var(--app-bg-image);
+    background-attachment: fixed;
+    background-size: cover;
     color: var(--text-primary);
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -53,6 +124,60 @@
 
   .safe-bottom-bar {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg;
+    background: linear-gradient(
+      90deg,
+      var(--bg-hover) 25%,
+      var(--bg-elevated) 50%,
+      var(--bg-hover) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .icon-btn {
+    @apply flex items-center justify-center rounded-xl transition-all active:scale-95;
+    min-height: 44px;
+    min-width: 44px;
+    color: var(--text-secondary);
+  }
+
+  .icon-btn:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  /* Glass-specific overrides */
+  html.google-glass .card,
+  html.apple-glass .card {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background-color: var(--glass-card-bg);
+    border-color: var(--glass-card-border);
+  }
+
+  html.google-glass .glass-surface,
+  html.apple-glass .glass-surface {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  html.google-glass .icon-btn:hover {
+    background-color: rgba(103, 80, 164, 0.08);
+  }
+
+  html.apple-glass .icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
   }
 }
 

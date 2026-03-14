@@ -18,7 +18,7 @@ interface GameSet {
 interface Game {
   id: string
   courtNumber: number
-  status: 'IN_PROGRESS' | 'COMPLETED'
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'QUEUED'
   gamePlayers: GamePlayer[]
   sets: GameSet[]
 }
@@ -31,29 +31,62 @@ export default function CompletedGameRow({ game }: { game: Game }) {
   const teamA = game.gamePlayers.filter((gp) => gp.team === 'A')
   const teamB = game.gamePlayers.filter((gp) => gp.team === 'B')
   const score = game.sets[game.sets.length - 1]
-  if (!score) return null
 
-  const aWon = score.winner === 'A'
   const aNames = teamA.map(shortName).join(' & ')
   const bNames = teamB.map(shortName).join(' & ')
 
+  if (!score) {
+    return (
+      <div className="flex min-h-[48px] items-center gap-[8px] px-[14px] py-[10px]" style={{
+        borderLeft: '3px solid var(--border-default)',
+        opacity: 0.6,
+      }}>
+        <span className="flex-1 text-right text-sm" style={{ color: 'var(--text-tertiary)' }}>{aNames}</span>
+        <span className="shrink-0 rounded-lg px-[8px] py-[2px] text-[10px] font-semibold uppercase"
+          style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}>
+          No Result
+        </span>
+        <span className="flex-1 text-sm" style={{ color: 'var(--text-tertiary)' }}>{bNames}</span>
+      </div>
+    )
+  }
+
+  const aWon = score.winner === 'A'
+
   return (
-    <div className="flex items-center gap-[8px] px-[14px] py-[10px]">
-      <span className={`flex-1 text-right text-[13px] leading-tight ${aWon ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>
+    <div className="flex min-h-[48px] items-center gap-[8px] px-[14px] py-[10px]" style={{
+      borderLeft: '3px solid #16a34a',
+    }}>
+      <div className="flex w-[18px] shrink-0 justify-center">
+        {aWon ? <span className="text-[12px]">🏆</span> : <span className="w-[12px]" />}
+      </div>
+
+      <span className={`flex-1 text-right text-sm leading-tight ${aWon ? 'font-bold' : 'font-normal'}`}
+        style={{ color: aWon ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
         {aNames}
       </span>
-      <div className="flex shrink-0 items-center gap-[4px]">
-        <span className={`min-w-[24px] text-center text-[15px] font-bold tabular-nums ${aWon ? 'text-primary' : 'text-gray-300'}`}>
+
+      <div className="flex shrink-0 items-center gap-[4px] rounded-lg px-[6px] py-[2px]"
+        style={{ backgroundColor: 'var(--bg-hover)' }}>
+        <span className={`min-w-[20px] text-center text-sm font-bold tabular-nums ${aWon ? 'text-primary' : ''}`}
+          style={{ color: aWon ? undefined : 'var(--text-tertiary)' }}>
           {score.teamAScore}
         </span>
-        <span className="text-[11px] text-gray-300">–</span>
-        <span className={`min-w-[24px] text-center text-[15px] font-bold tabular-nums ${!aWon ? 'text-primary' : 'text-gray-300'}`}>
+        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>–</span>
+        <span className={`min-w-[20px] text-center text-sm font-bold tabular-nums ${!aWon ? 'text-primary' : ''}`}
+          style={{ color: !aWon ? undefined : 'var(--text-tertiary)' }}>
           {score.teamBScore}
         </span>
       </div>
-      <span className={`flex-1 text-[13px] leading-tight ${!aWon ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>
+
+      <span className={`flex-1 text-sm leading-tight ${!aWon ? 'font-bold' : 'font-normal'}`}
+        style={{ color: !aWon ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
         {bNames}
       </span>
+
+      <div className="flex w-[18px] shrink-0 justify-center">
+        {!aWon ? <span className="text-[12px]">🏆</span> : <span className="w-[12px]" />}
+      </div>
     </div>
   )
 }

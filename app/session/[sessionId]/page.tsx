@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  ChevronLeft, Settings, RefreshCw, Users, Hash, LayoutGrid,
+  AlertCircle, Moon, Sun, UserPlus, X, Loader2, Search,
+} from 'lucide-react'
 import CourtCard from '@/components/session/CourtCard'
 import CompletedGameRow from '@/components/session/CompletedGameRow'
 import ScoreEntryModal from '@/components/session/ScoreEntryModal'
@@ -24,7 +29,7 @@ interface GamePlayer {
 interface GameSet { id: string; teamAScore: number; teamBScore: number; winner: 'A' | 'B' }
 
 interface Game {
-  id: string; courtNumber: number; status: 'IN_PROGRESS' | 'COMPLETED'
+  id: string; courtNumber: number; status: 'IN_PROGRESS' | 'COMPLETED' | 'QUEUED'
   gamePlayers: GamePlayer[]; sets: GameSet[]
   endedAt?: string | null; startedAt?: string
 }
@@ -42,11 +47,169 @@ interface Session {
 function SectionHeader({ title, count, action }: { title: string; count: number; action?: React.ReactNode }) {
   return (
     <div className="mb-[8px] flex items-center gap-[8px]">
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">{title}</h2>
-      <span className="flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-gray-100 px-[5px] text-[10px] font-bold text-gray-500">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-tertiary)' }}>{title}</h2>
+      <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-[6px] text-xs font-bold" style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
         {count}
       </span>
       {action && <div className="ml-auto">{action}</div>}
+    </div>
+  )
+}
+
+interface ClubMember {
+  id: string
+  userId: string
+  user: { id: string; name: string; email: string; image: string | null }
+}
+
+interface PastGuest {
+  guestName: string
+  guestEmail: string | null
+  sessionCount: number
+}
+
+function AddPlayerSearch({
+  searchQuery, setSearchQuery, showDropdown, setShowDropdown,
+  addPlayerRef, dropdownRef, clubMembers, pastGuests, sessionPlayers,
+  addingPlayer, onAddMember, onAddGuest, onClose,
+}: {
+  searchQuery: string
+  setSearchQuery: (v: string) => void
+  showDropdown: boolean
+  setShowDropdown: (v: boolean) => void
+  addPlayerRef: React.RefObject<HTMLInputElement>
+  dropdownRef: React.RefObject<HTMLDivElement>
+  clubMembers: ClubMember[]
+  pastGuests: PastGuest[]
+  sessionPlayers: SessionPlayer[]
+  addingPlayer: boolean
+  onAddMember: (userId: string) => void
+  onAddGuest: (name: string, email?: string) => void
+  onClose: () => void
+}) {
+  const addedUserIds = new Set(sessionPlayers.filter(p => p.userId).map(p => p.userId!))
+  const addedGuestNames = new Set(sessionPlayers.filter(p => p.guestName).map(p => p.guestName!.toLowerCase()))
+  const query = searchQuery.toLowerCase().trim()
+
+  const filteredMembers = clubMembers.filter(m =>
+    !addedUserIds.has(m.userId) &&
+    (query === '' || m.user.name?.toLowerCase().includes(query) || m.user.email.toLowerCase().includes(query))
+  )
+
+  const filteredGuests = pastGuests.filter(g =>
+    !addedGuestNames.has(g.guestName.toLowerCase()) &&
+    (query === '' || g.guestName.toLowerCase().includes(query))
+  )
+
+  const exactMemberMatch = clubMembers.some(m => m.user.name?.toLowerCase() === query)
+  const exactGuestMatch = pastGuests.some(g => g.guestName.toLowerCase() === query)
+  const canAddNew = query.length > 0 && !exactMemberMatch && !exactGuestMatch && !addedGuestNames.has(query)
+
+  const hasResults = filteredMembers.length > 0 || filteredGuests.length > 0 || canAddNew
+
+  return (
+    <div ref={dropdownRef} className="relative mb-[8px]">
+      <div className="flex items-center gap-[8px] rounded-xl px-[12px] py-[8px] transition-colors focus-within:ring-2 focus-within:ring-primary/30"
+        style={{ backgroundColor: 'var(--bg-hover)' }}>
+        <Search size={14} style={{ color: 'var(--text-tertiary)' }} className="shrink-0" />
+        <input
+          ref={addPlayerRef}
+          type="text"
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true) }}
+          onFocus={() => setShowDropdown(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && canAddNew) onAddGuest(searchQuery)
+            if (e.key === 'Escape') onClose()
+          }}
+          placeholder="Search members or add guest..."
+          className="min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
+          style={{ color: 'var(--text-primary)' }}
+        />
+        {addingPlayer && <Loader2 size={14} className="shrink-0 animate-spin text-primary" />}
+        <button onClick={onClose}
+          className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--bg-active)]"
+          style={{ color: 'var(--text-tertiary)' }}>
+          <X size={14} />
+        </button>
+      </div>
+
+      {showDropdown && hasResults && (
+        <div className="absolute left-0 right-0 z-20 mt-[4px] max-h-[240px] overflow-y-auto rounded-2xl border shadow-[var(--shadow-elevated)]"
+          style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)' }}>
+
+          {filteredMembers.map(m => (
+            <button key={m.userId}
+              onClick={() => onAddMember(m.userId)}
+              disabled={addingPlayer}
+              className="flex w-full items-center gap-[10px] px-[12px] py-[10px] text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+            >
+              {m.user.image ? (
+                <img src={m.user.image} alt="" className="h-[28px] w-[28px] shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}>
+                  {(m.user.name ?? m.user.email)[0].toUpperCase()}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{m.user.name}</p>
+                <p className="truncate text-xs" style={{ color: 'var(--text-tertiary)' }}>{m.user.email}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-primary/10 px-[8px] py-[2px] text-[10px] font-semibold text-primary">
+                Member
+              </span>
+            </button>
+          ))}
+
+          {filteredMembers.length > 0 && filteredGuests.length > 0 && (
+            <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+          )}
+
+          {filteredGuests.map(g => (
+            <button key={g.guestName}
+              onClick={() => onAddGuest(g.guestName, g.guestEmail ?? undefined)}
+              disabled={addingPlayer}
+              className="flex w-full items-center gap-[10px] px-[12px] py-[10px] text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+            >
+              <span className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}>
+                {g.guestName[0].toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{g.guestName}</p>
+                <p className="truncate text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  {g.sessionCount} past session{g.sessionCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full px-[8px] py-[2px] text-[10px] font-semibold"
+                style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}>
+                Guest
+              </span>
+            </button>
+          ))}
+
+          {canAddNew && (
+            <>
+              {(filteredMembers.length > 0 || filteredGuests.length > 0) && (
+                <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+              )}
+              <button
+                onClick={() => onAddGuest(searchQuery)}
+                disabled={addingPlayer}
+                className="flex w-full items-center gap-[10px] px-[12px] py-[10px] text-left transition-colors hover:bg-[var(--bg-hover)]"
+              >
+                <span className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <UserPlus size={14} className="text-primary" />
+                </span>
+                <p className="text-sm font-medium text-primary">
+                  Add &ldquo;{searchQuery.trim()}&rdquo; as guest
+                </p>
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -60,21 +223,95 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
   const [error, setError] = useState('')
   const [showEndConfirm, setShowEndConfirm] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
+  const [togglingPlayer, setTogglingPlayer] = useState<string | null>(null)
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [addingPlayer, setAddingPlayer] = useState(false)
+  const [clubMembers, setClubMembers] = useState<ClubMember[]>([])
+  const [pastGuests, setPastGuests] = useState<PastGuest[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const addPlayerRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/sessions/${params.sessionId}`)
     if (!res.ok) { router.push('/dashboard'); return }
-    setSession(await res.json())
+    const data = await res.json()
+    setSession(data)
     setLoading(false)
+    return data as Session
   }, [params.sessionId, router])
 
   useEffect(() => { load() }, [load])
+
+  // Fetch club members & past guests when add-player opens
+  useEffect(() => {
+    if (!showAddPlayer || !session) return
+    const clubId = session.club.id
+    Promise.all([
+      fetch(`/api/clubs/${clubId}/members`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/clubs/${clubId}/past-guests`).then(r => r.ok ? r.json() : []),
+    ]).then(([m, g]) => {
+      setClubMembers(m)
+      setPastGuests(g)
+    })
+  }, [showAddPlayer, session])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   async function generateGames() {
     setBusy(true); setError('')
     const res = await fetch(`/api/sessions/${params.sessionId}/games`, { method: 'POST' })
     if (!res.ok) setError((await res.json()).error ?? 'Could not generate games')
     await load(); setBusy(false)
+  }
+
+  async function togglePlayerSleep(playerId: string, currentStatus: string) {
+    setTogglingPlayer(playerId)
+    const newStatus = currentStatus === 'AVAILABLE' ? 'SITTING_OUT' : 'AVAILABLE'
+    await fetch(`/api/sessions/${params.sessionId}/players/${playerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    await load()
+    setTogglingPlayer(null)
+  }
+
+  async function addPlayerByUserId(userId: string) {
+    setAddingPlayer(true)
+    const res = await fetch(`/api/sessions/${params.sessionId}/players`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    if (res.ok) { setSearchQuery(''); setShowDropdown(false) }
+    await load()
+    setAddingPlayer(false)
+  }
+
+  async function addPlayerAsGuest(name: string, email?: string) {
+    if (!name.trim()) return
+    setAddingPlayer(true)
+    const payload: { guestName: string; guestEmail?: string } = { guestName: name.trim() }
+    if (email?.trim()) payload.guestEmail = email.trim()
+    const res = await fetch(`/api/sessions/${params.sessionId}/players`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (res.ok) { setSearchQuery(''); setShowDropdown(false) }
+    await load()
+    setAddingPlayer(false)
   }
 
   async function endSession() {
@@ -88,25 +325,26 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
   }
 
   if (loading || !session) {
-    return <main className="flex min-h-screen items-center justify-center"><p className="text-neutral">Loading…</p></main>
+    return <main className="flex min-h-screen items-center justify-center"><p style={{ color: 'var(--text-secondary)' }}>Loading...</p></main>
   }
 
   const isAdmin = session.userRole === 'OWNER' || session.userRole === 'ADMIN'
   const active = session.games.filter((g) => g.status === 'IN_PROGRESS')
+  const queued = session.games.filter((g) => g.status === 'QUEUED')
   const done = session.games.filter((g) => g.status === 'COMPLETED')
-  const busyIds = new Set(active.flatMap((g) => g.gamePlayers.map((gp) => gp.sessionPlayer.id)))
-  const waiting = session.sessionPlayers.filter((p) => p.status === 'AVAILABLE' && !busyIds.has(p.id))
-  const sittingOut = session.sessionPlayers.filter((p) => p.status !== 'AVAILABLE')
+
+  const committedIds = new Set(
+    [...active, ...queued].flatMap((g) => g.gamePlayers.map((gp) => gp.sessionPlayer.id))
+  )
+  const waiting = session.sessionPlayers.filter((p) => p.status === 'AVAILABLE' && !committedIds.has(p.id))
+  const sleeping = session.sessionPlayers.filter((p) => p.status === 'SITTING_OUT')
+  const absent = session.sessionPlayers.filter((p) => p.status === 'ABSENT')
 
   const title = session.name ?? new Date(session.date).toLocaleDateString('en-AU', {
     weekday: 'short', day: 'numeric', month: 'short'
   })
   const gamesPlayed = done.length
-  const dateStr = new Date(session.date).toLocaleDateString('en-AU', {
-    weekday: 'long', day: 'numeric', month: 'short',
-  })
 
-  // Per-player stats
   const playerStats = new Map<string, { gamesPlayed: number; lastGameEndedAt: Date | null }>()
   for (const g of session.games) {
     if (g.status !== 'COMPLETED') continue
@@ -129,7 +367,6 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
     return `${mins}m`
   }
 
-  // Sort waiting by longest wait first (no games yet → top, then oldest lastGameEndedAt)
   const waitingSorted = [...waiting].sort((a, b) => {
     const sa = playerStats.get(a.id)
     const sb = playerStats.get(b.id)
@@ -138,48 +375,137 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
     return ta - tb
   })
 
-  const occupiedCourts = new Set(active.map((g) => g.courtNumber))
+  const occupiedCourts = new Map(active.map((g) => [g.courtNumber, g]))
   const allCourts = Array.from({ length: session.courts }, (_, i) => i + 1)
   const freeCourts = allCourts.filter((c) => !occupiedCourts.has(c))
+  const onCourtPlayers = session.sessionPlayers.filter((p) => p.status === 'AVAILABLE' && committedIds.has(p.id))
+  const totalActivePlayers = onCourtPlayers.length + waiting.length
 
-  const onCourt = session.sessionPlayers.filter((p) => p.status === 'AVAILABLE' && busyIds.has(p.id))
-
-  // Completed: show last 3 unless expanded
   const completedVisible = showAllCompleted ? done : done.slice(0, 3)
   const completedHidden = done.length - completedVisible.length
 
-  // --- Sidebar content (waiting + sitting out) ---
   const sidebarContent = (
     <>
-      {/* Waiting queue */}
-      {waitingSorted.length > 0 && (
-        <section className="mb-[20px]">
-          <SectionHeader title="Waiting" count={waitingSorted.length} />
+      {/* Waiting Players */}
+      <section className="mb-[20px]">
+        <SectionHeader
+          title="Waiting"
+          count={waitingSorted.length}
+          action={isAdmin && session.status === 'ACTIVE' && (
+            <button
+              onClick={() => { setShowAddPlayer(true); setTimeout(() => addPlayerRef.current?.focus(), 100) }}
+              className="flex min-h-[32px] items-center gap-[4px] rounded-lg px-[8px] text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              <UserPlus size={14} />
+              Add
+            </button>
+          )}
+        />
+
+        {/* Searchable add player */}
+        <AnimatePresence>
+          {showAddPlayer && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <AddPlayerSearch
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                showDropdown={showDropdown}
+                setShowDropdown={setShowDropdown}
+                addPlayerRef={addPlayerRef}
+                dropdownRef={dropdownRef}
+                clubMembers={clubMembers}
+                pastGuests={pastGuests}
+                sessionPlayers={session.sessionPlayers}
+                addingPlayer={addingPlayer}
+                onAddMember={addPlayerByUserId}
+                onAddGuest={addPlayerAsGuest}
+                onClose={() => { setShowAddPlayer(false); setSearchQuery(''); setShowDropdown(false) }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {waitingSorted.length > 0 ? (
           <div className="space-y-[4px]">
             {waitingSorted.map((p, i) => {
               const stats = playerStats.get(p.id)
               const gp = stats?.gamesPlayed ?? 0
               const wait = formatWait(stats?.lastGameEndedAt ?? null)
               const isLongWait = !stats?.lastGameEndedAt || (stats.lastGameEndedAt && Date.now() - stats.lastGameEndedAt.getTime() > 600000)
+              const isToggling = togglingPlayer === p.id
               return (
                 <div
                   key={p.id}
-                  className={`flex items-center gap-[8px] rounded-lg px-[10px] py-[6px] ${
-                    i === 0 ? 'bg-amber-50/80' : 'bg-white'
-                  }`}
+                  className="flex min-h-[44px] items-center gap-[10px] rounded-xl px-[12px] py-[8px]"
+                  style={{ backgroundColor: i === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-card)' }}
                 >
-                  <span className={`flex h-[6px] w-[6px] shrink-0 rounded-full ${
+                  <span className={`flex h-[7px] w-[7px] shrink-0 rounded-full ${
                     isLongWait ? 'bg-amber-400' : 'bg-primary/50'
                   }`} />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-700">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {p.user?.name?.split(' ')[0] ?? p.guestName ?? 'Guest'}
                   </span>
-                  <span className="shrink-0 text-[11px] tabular-nums text-gray-400">
+                  <span className="shrink-0 text-xs tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
                     {gp}g
                   </span>
-                  <span className={`shrink-0 text-[11px] tabular-nums ${isLongWait ? 'font-medium text-amber-600' : 'text-gray-400'}`}>
+                  <span className={`shrink-0 text-xs tabular-nums ${isLongWait ? 'font-medium text-amber-600' : ''}`}
+                    style={{ color: isLongWait ? undefined : 'var(--text-tertiary)' }}>
                     {wait}
                   </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => togglePlayerSleep(p.id, 'AVAILABLE')}
+                      disabled={isToggling}
+                      className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg transition-all hover:bg-amber-500/10 active:scale-90 disabled:opacity-40"
+                      title="Put player to sleep"
+                      aria-label="Put player to sleep"
+                    >
+                      <Moon size={14} style={{ color: 'var(--text-tertiary)' }} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : !showAddPlayer && (
+          <p className="py-[8px] text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>No players waiting</p>
+        )}
+      </section>
+
+      {/* Sleeping Players */}
+      {sleeping.length > 0 && (
+        <section className="mb-[20px]">
+          <SectionHeader title="Sleeping" count={sleeping.length} />
+          <div className="space-y-[4px]">
+            {sleeping.map((p) => {
+              const isToggling = togglingPlayer === p.id
+              return (
+                <div
+                  key={p.id}
+                  className="flex min-h-[40px] items-center gap-[10px] rounded-xl px-[12px] py-[8px]"
+                  style={{ backgroundColor: 'var(--bg-hover)', opacity: 0.7 }}
+                >
+                  <Moon size={14} style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="min-w-0 flex-1 truncate text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    {p.user?.name?.split(' ')[0] ?? p.guestName ?? 'Guest'}
+                  </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => togglePlayerSleep(p.id, 'SITTING_OUT')}
+                      disabled={isToggling}
+                      className="flex h-[32px] shrink-0 items-center gap-[4px] rounded-lg px-[10px] text-xs font-medium transition-all hover:bg-primary/10 active:scale-95 disabled:opacity-40"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      <Sun size={12} />
+                      Wake
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -187,15 +513,16 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
         </section>
       )}
 
-      {/* Sitting out */}
-      {sittingOut.length > 0 && (
+      {/* Absent players */}
+      {absent.length > 0 && (
         <section className="mb-[20px]">
-          <SectionHeader title="Sitting Out" count={sittingOut.length} />
-          <div className="flex flex-wrap gap-[4px]">
-            {sittingOut.map((p) => (
+          <SectionHeader title="Absent" count={absent.length} />
+          <div className="flex flex-wrap gap-[6px]">
+            {absent.map((p) => (
               <span
                 key={p.id}
-                className="rounded-md bg-gray-100 px-[8px] py-[3px] text-[11px] text-gray-400"
+                className="rounded-lg px-[10px] py-[5px] text-xs"
+                style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}
               >
                 {p.user?.name?.split(' ')[0] ?? p.guestName ?? 'Guest'}
               </span>
@@ -207,103 +534,134 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
   )
 
   return (
-    <main className="mx-auto max-w-[960px] px-[16px] pb-[120px] pt-[16px]">
-      {/* Back link */}
+    <main className="mx-auto max-w-[960px] px-[16px] pb-[120px] pt-[16px] sm:px-[24px]">
       <Link
         href={`/club/${session.club.id}`}
-        className="mb-[12px] inline-flex items-center gap-[4px] text-[13px] font-medium text-gray-400 transition-colors hover:text-gray-600"
+        className="mb-[12px] inline-flex min-h-[44px] items-center gap-[6px] text-sm font-medium transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <ChevronLeft size={16} />
         {session.club.name}
       </Link>
 
-      {/* Header — compact inline bar */}
-      <div className="mb-[16px] flex flex-wrap items-center gap-x-[16px] gap-y-[8px] rounded-xl bg-white px-[16px] py-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      {/* Session Header */}
+      <div className="card mb-[16px] flex flex-wrap items-center gap-x-[16px] gap-y-[8px] px-[16px] py-[12px]">
         <div className="flex min-w-0 flex-1 items-center gap-[10px]">
-          <h1 className="truncate text-[18px] font-bold tracking-tight text-gray-900">{title}</h1>
+          <h1 className="truncate text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>{title}</h1>
           {session.status === 'ACTIVE' && (
-            <span className="flex shrink-0 items-center gap-[4px] rounded-full bg-primary/10 px-[8px] py-[2px] text-[10px] font-bold uppercase tracking-wide text-primary">
-              <span className="relative flex h-[5px] w-[5px]">
+            <span className="flex shrink-0 items-center gap-[4px] rounded-full bg-primary/10 px-[10px] py-[3px] text-xs font-bold uppercase tracking-wide text-primary">
+              <span className="relative flex h-[6px] w-[6px]">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-                <span className="relative inline-flex h-[5px] w-[5px] rounded-full bg-primary" />
+                <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-primary" />
               </span>
               Live
             </span>
           )}
           {session.status === 'ENDED' && (
-            <span className="shrink-0 rounded-full bg-gray-100 px-[8px] py-[2px] text-[10px] font-semibold text-gray-500">Ended</span>
+            <span className="shrink-0 rounded-full px-[10px] py-[3px] text-xs font-semibold" style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>Ended</span>
           )}
         </div>
 
-        {/* Stats pills */}
-        <div className="flex items-center gap-[12px] text-[12px]">
-          <span className="flex items-center gap-[4px] text-gray-400">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2"/><path d="M2.5 12.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-            <span className="font-semibold text-gray-600">{onCourt.length + waiting.length}</span>
+        <div className="flex items-center gap-[12px] text-xs" style={{ color: 'var(--text-tertiary)' }}>
+          <span className="flex items-center gap-[4px]">
+            <Users size={14} />
+            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{totalActivePlayers}</span>
           </span>
-          <span className="flex items-center gap-[4px] text-gray-400">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.2"/><path d="M5 7h4M7 5v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-            <span className="font-semibold text-gray-600">{gamesPlayed}</span>
+          <span className="flex items-center gap-[4px]">
+            <Hash size={14} />
+            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{gamesPlayed}</span>
           </span>
-          <span className="flex items-center gap-[4px] text-gray-400">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="3" width="11" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 3v8" stroke="currentColor" strokeWidth="1.2"/></svg>
-            <span className="font-semibold text-gray-600">{session.courts}</span>
+          <span className="flex items-center gap-[4px]">
+            <LayoutGrid size={14} />
+            <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{session.courts}</span>
           </span>
         </div>
 
-        {/* Action buttons */}
         <div className="flex shrink-0 gap-[6px]">
           {isAdmin && (
             <Link href={`/session/${params.sessionId}/settings`}
-              className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition-all hover:border-gray-300 hover:text-gray-600 active:scale-95"
+              className="icon-btn border"
+              style={{ borderColor: 'var(--border-default)' }}
               aria-label="Session settings"
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5.86 1.57l.53-1a.7.7 0 011.22 0l.53 1 1.1.08a.7.7 0 01.56.98l-.48.96.48.96a.7.7 0 01-.56.98l-1.1.08-.53 1a.7.7 0 01-1.22 0l-.53-1-1.1-.08a.7.7 0 01-.56-.98l.48-.96-.48-.96a.7.7 0 01.56-.98l1.1-.08z" stroke="currentColor" strokeWidth="1.1"/><circle cx="7" cy="4.2" r="1" stroke="currentColor" strokeWidth="0.9"/></svg>
+              <Settings size={18} />
             </Link>
           )}
           <button
             onClick={load}
-            className="flex h-[32px] w-[32px] items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition-all hover:border-gray-300 hover:text-gray-600 active:scale-95"
+            className="icon-btn border" style={{ borderColor: 'var(--border-default)' }}
             aria-label="Refresh"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M11.9 2.1V4.9H9.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2.1 7A4.9 4.9 0 0111 3.9L11.9 4.9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2.1 11.9V9.1H4.9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M11.9 7A4.9 4.9 0 013 10.1L2.1 9.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <RefreshCw size={18} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-[12px] flex items-center gap-[8px] rounded-xl bg-red-50 px-[14px] py-[10px] text-[13px] text-red-600">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.3"/><path d="M7 4.5v2.5M7 8.5h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+        <div className="mb-[12px] flex items-center gap-[8px] rounded-xl bg-red-50 px-[14px] py-[12px] text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+          <AlertCircle size={14} />
           {error}
         </div>
       )}
 
-      {/* === Two-column layout on md+ === */}
-      <div className="md:grid md:grid-cols-[1fr_260px] md:gap-[20px]">
-        {/* Left: Courts */}
+      <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-[24px]">
         <div>
-          {active.length > 0 && (
+          {/* Courts Section */}
+          <section className="mb-[20px]">
+            <SectionHeader title="Courts" count={session.courts} />
+            <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
+              {allCourts.map((courtNum, i) => {
+                const game = occupiedCourts.get(courtNum)
+                return (
+                  <motion.div
+                    key={courtNum}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.25 }}
+                  >
+                    <CourtCard
+                      game={game}
+                      courtNumber={courtNum}
+                      isAdmin={isAdmin}
+                      onEnterScore={setSelectedGame}
+                      isEmpty={!game}
+                    />
+                  </motion.div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* Up Next Queue */}
+          {queued.length > 0 && (
             <section className="mb-[20px]">
-              <SectionHeader title="On Court" count={active.length} />
-              <div className="grid grid-cols-1 gap-[8px] sm:grid-cols-2">
-                {active.map((g) => (
-                  <CourtCard key={g.id} game={g} isAdmin={isAdmin} onEnterScore={setSelectedGame} />
+              <SectionHeader title="Up Next" count={queued.length} />
+              <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
+                {queued.map((g, i) => (
+                  <motion.div
+                    key={g.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05, duration: 0.25 }}
+                  >
+                    <CourtCard
+                      game={g}
+                      courtNumber={0}
+                      isAdmin={isAdmin}
+                      onEnterScore={setSelectedGame}
+                    />
+                  </motion.div>
                 ))}
               </div>
             </section>
           )}
 
-          {/* On mobile: show sidebar content inline after courts */}
-          <div className="md:hidden">
+          {/* Sidebar content on mobile */}
+          <div className="lg:hidden">
             {sidebarContent}
           </div>
 
-          {/* Completed games — collapsed by default */}
+          {/* Completed Games */}
           {done.length > 0 && (
             <section className="mb-[20px]">
               <SectionHeader
@@ -313,14 +671,14 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
                   done.length > 3 && (
                     <button
                       onClick={() => setShowAllCompleted(!showAllCompleted)}
-                      className="text-[11px] font-medium text-primary hover:text-primary-dark"
+                      className="min-h-[36px] rounded-lg px-[8px] text-xs font-medium text-primary hover:text-primary-dark"
                     >
                       {showAllCompleted ? 'Show less' : `Show all ${done.length}`}
                     </button>
                   )
                 }
               />
-              <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 bg-white">
+              <div className="card divide-y overflow-hidden" style={{ borderColor: 'var(--border-default)' }}>
                 {completedVisible.map((g) => (
                   <CompletedGameRow key={g.id} game={g} />
                 ))}
@@ -328,7 +686,8 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
               {completedHidden > 0 && !showAllCompleted && (
                 <button
                   onClick={() => setShowAllCompleted(true)}
-                  className="mt-[6px] w-full rounded-lg py-[6px] text-center text-[11px] font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+                  className="mt-[6px] w-full rounded-xl py-[10px] text-center text-xs font-medium transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
                 >
                   +{completedHidden} more
                 </button>
@@ -336,46 +695,46 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
             </section>
           )}
 
-          {active.length === 0 && done.length === 0 && (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-[40px] text-center">
-              <div className="mb-[6px] text-[28px]">🏸</div>
-              <p className="text-[13px] font-medium text-gray-500">
-                {session.status === 'ACTIVE' ? 'Tap "Generate Round" to start' : 'No games played'}
+          {active.length === 0 && queued.length === 0 && done.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed py-[48px] text-center" style={{ borderColor: 'var(--border-default)' }}>
+              <div className="mb-[8px] text-[32px]">🏸</div>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                {session.status === 'ACTIVE' ? 'Tap "Next Game" to start' : 'No games played'}
               </p>
             </div>
           )}
         </div>
 
-        {/* Right sidebar: Waiting + Sitting out (tablet+) */}
-        <aside className="hidden md:block">
+        <aside className="hidden lg:block">
           <div className="sticky top-[80px]">
             {sidebarContent}
           </div>
         </aside>
       </div>
 
-      {/* Sticky bottom bar */}
+      {/* Bottom action bar */}
       {isAdmin && session.status === 'ACTIVE' && (
-        <div className="safe-bottom-bar fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white/90 px-[16px] py-[10px] backdrop-blur-md">
+        <div className="safe-bottom-bar fixed bottom-0 left-0 right-0 z-40 border-t px-[16px] py-[10px]" style={{ borderColor: 'var(--border-default)', backgroundColor: 'color-mix(in srgb, var(--bg-card) 90%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <div className="mx-auto flex max-w-[960px] gap-[8px]">
             <button
               onClick={generateGames}
               disabled={busy || waiting.length < 4}
               title={waiting.length < 4 ? 'Need 4+ waiting players' : ''}
-              className="flex-1 rounded-xl bg-primary py-[12px] text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(22,163,74,0.25)] transition-all disabled:opacity-40 disabled:shadow-none active:scale-[0.98] active:bg-primary-dark"
+              className="flex-1 rounded-xl bg-primary py-[14px] text-sm font-semibold text-white shadow-[0_2px_8px_rgba(22,163,74,0.25)] transition-all disabled:opacity-40 disabled:shadow-none active:scale-[0.98] active:bg-primary-dark"
             >
               {busy ? (
                 <span className="inline-flex items-center gap-[6px]">
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
-                  Generating…
+                  <Loader2 size={16} className="animate-spin" />
+                  Generating...
                 </span>
               ) : (
-                `Generate Round${waiting.length >= 4 ? ` · ${waiting.length} waiting${freeCourts.length > 0 && freeCourts.length < session.courts ? ` · ${freeCourts.length}ct free` : ''}` : ''}`
+                `Next Game${waiting.length >= 4 ? ` · ${waiting.length} waiting` : ''}`
               )}
             </button>
             <button
               onClick={() => setShowEndConfirm(true)}
-              className="rounded-xl border border-gray-200 bg-white px-[14px] py-[12px] text-[13px] font-semibold text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700"
+              className="rounded-xl border px-[16px] py-[14px] text-sm font-semibold transition-colors"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}
             >
               End
             </button>
@@ -383,7 +742,6 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
         </div>
       )}
 
-      {/* Score modal */}
       {selectedGame && (
         <ScoreEntryModal
           game={selectedGame}
@@ -394,27 +752,43 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
         />
       )}
 
-      {/* End session confirm */}
-      {showEndConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center"
-          onClick={(e) => e.target === e.currentTarget && setShowEndConfirm(false)}>
-          <div className="w-full max-w-sm rounded-t-3xl bg-white p-[24px] pb-[32px] sm:rounded-2xl sm:pb-[24px]">
-            <div className="mx-auto mb-[16px] h-[4px] w-[40px] rounded-full bg-gray-200 sm:hidden" />
-            <h2 className="mb-[8px] text-[18px] font-bold text-gray-900">End Session?</h2>
-            <p className="mb-[20px] text-[14px] leading-relaxed text-gray-500">This will close the session. You can still view results afterwards.</p>
-            <div className="flex gap-[10px]">
-              <button onClick={endSession} disabled={busy}
-                className="flex-1 rounded-xl bg-red-500 py-[12px] text-[14px] font-semibold text-white transition-colors disabled:opacity-50 hover:bg-red-600">
-                {busy ? 'Ending…' : 'End Session'}
-              </button>
-              <button onClick={() => setShowEndConfirm(false)}
-                className="flex-1 rounded-xl border border-gray-200 py-[12px] text-[14px] font-semibold text-gray-700 transition-colors hover:bg-gray-50">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showEndConfirm && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => e.target === e.currentTarget && setShowEndConfirm(false)}
+            style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-t-3xl p-[24px] pb-[32px] sm:rounded-2xl sm:pb-[24px]"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            >
+              <div className="mx-auto mb-[16px] h-[4px] w-[40px] rounded-full sm:hidden" style={{ backgroundColor: 'var(--border-default)' }} />
+              <h2 className="mb-[8px] text-lg font-bold" style={{ color: 'var(--text-primary)' }}>End Session?</h2>
+              <p className="mb-[20px] text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>This will close the session. You can still view results afterwards.</p>
+              <div className="flex gap-[10px]">
+                <button onClick={endSession} disabled={busy}
+                  className="flex-1 rounded-xl bg-red-500 py-[14px] text-sm font-semibold text-white transition-colors disabled:opacity-50 hover:bg-red-600">
+                  {busy ? 'Ending...' : 'End Session'}
+                </button>
+                <button onClick={() => setShowEndConfirm(false)}
+                  className="flex-1 rounded-xl border py-[14px] text-sm font-semibold transition-colors"
+                  style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   )
 }
