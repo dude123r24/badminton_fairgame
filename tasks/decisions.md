@@ -75,3 +75,19 @@ REJECTED: Storing win/loss counters on PlayerProfile — extra mutation points, 
 [2026-03-12] DECISION: Standings page is club-scoped (/club/:id/standings), not global (/standings)
 REASON: Ratings are per-club (PlayerProfile has clubId). A global standings page is meaningless without a club filter.
 REJECTED: Global /standings page — confusing when a player is in multiple clubs with different ratings
+
+[2026-03-13] DECISION: Replace PER_GAME/FIXED/OPPONENT_WEIGHT/PLAY_WITHIN_CLASS with 4 clear algorithms: RANDOM, EQUAL_WEIGHT (Balanced), LADDER, PEG (Board)
+REASON: PER_GAME was just RANDOM, OPPONENT_WEIGHT was just EQUAL_WEIGHT — both placeholders. FIXED pairing threw errors. New LADDER (skill-proximity) and PEG (FIFO fairness) cover the two most requested badminton club modes. Old enum values kept in schema for backward compatibility.
+REJECTED: Removing old enum values — would break existing sessions in the database
+
+[2026-03-13] DECISION: Algorithms are history-aware with soft repeat avoidance
+REASON: Without history, the same 4 players get paired together repeatedly in small groups. Soft avoidance (attempt one swap to break repeats, fall back gracefully) prevents staleness without breaking the algorithm's core intent. PEG uses no avoidance (pure FIFO is the point).
+REJECTED: Hard constraint (never repeat) — impossible with small groups; scoring penalty system — over-engineered for the benefit
+
+[2026-03-13] DECISION: GameAuditLog model for manual player swap tracking
+REASON: Admin needs ability to manually swap players in active/queued games. All swaps must be audited (who swapped whom, when, by whom). Separate audit table keeps Game model clean while providing a full history trail.
+REJECTED: Storing swap history as JSON on Game model — harder to query, no referential integrity; no audit — unacceptable for fairness transparency
+
+[2026-03-13] DECISION: Store pairingAlgorithm and opponentAlgorithm on each Game
+REASON: Each game should record which algorithms generated it, independent of session-level settings (which can be changed mid-session). Provides a per-game audit trail of algorithmic decisions.
+REJECTED: Only storing at session level — misleading if algorithms are changed mid-session

@@ -60,6 +60,10 @@ export async function GET(
               },
             },
           },
+          auditLogs: {
+            orderBy: { createdAt: 'desc' },
+            include: { user: { select: { id: true, name: true } } },
+          },
         },
         orderBy: { startedAt: 'desc' },
       },

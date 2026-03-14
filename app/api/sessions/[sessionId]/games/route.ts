@@ -118,14 +118,58 @@ export async function POST(
   })
   profiles.forEach((p) => profileMap.set(p.userId, { rating: p.rating, class: p.class }))
 
+  // Build session history for each player (partners, opponents, game counts, wait times)
+  const completedGames = await prisma.game.findMany({
+    where: { sessionId: params.sessionId, status: 'COMPLETED' },
+    include: { gamePlayers: { select: { sessionPlayerId: true, team: true } } },
+    orderBy: { endedAt: 'desc' },
+  })
+
+  const historyMap = new Map<string, {
+    gamesPlayed: number
+    lastGameEndedAt: number | null
+    recentPartnerIds: string[]
+    recentOpponentIds: string[]
+  }>()
+
+  for (const g of completedGames) {
+    const endedAt = g.endedAt ? g.endedAt.getTime() : null
+    const teamA = g.gamePlayers.filter(gp => gp.team === 'A').map(gp => gp.sessionPlayerId)
+    const teamB = g.gamePlayers.filter(gp => gp.team === 'B').map(gp => gp.sessionPlayerId)
+
+    for (const gp of g.gamePlayers) {
+      const id = gp.sessionPlayerId
+      const prev = historyMap.get(id) ?? {
+        gamesPlayed: 0,
+        lastGameEndedAt: null,
+        recentPartnerIds: [],
+        recentOpponentIds: [],
+      }
+      prev.gamesPlayed++
+      if (endedAt && (prev.lastGameEndedAt === null || endedAt > prev.lastGameEndedAt)) {
+        prev.lastGameEndedAt = endedAt
+      }
+      const myTeam = gp.team === 'A' ? teamA : teamB
+      const oppTeam = gp.team === 'A' ? teamB : teamA
+      const partner = myTeam.find(pid => pid !== id)
+      if (partner) prev.recentPartnerIds.push(partner)
+      prev.recentOpponentIds.push(...oppTeam)
+      historyMap.set(id, prev)
+    }
+  }
+
   const players: Player[] = availablePlayers.map((sp) => {
     const profile = sp.userId ? profileMap.get(sp.userId) : undefined
+    const history = historyMap.get(sp.id)
     return {
       id: sp.id,
       name: sp.user?.name ?? sp.guestName ?? 'Guest',
       rating: profile?.rating ?? 1500,
       class: profile?.class ?? 'INTERMEDIATE',
-      gamesPlayed: 0,
+      gamesPlayed: history?.gamesPlayed ?? 0,
+      lastGameEndedAt: history?.lastGameEndedAt ?? null,
+      recentPartnerIds: history?.recentPartnerIds ?? [],
+      recentOpponentIds: history?.recentOpponentIds ?? [],
     }
   })
 
@@ -156,6 +200,8 @@ export async function POST(
       courtNumber: freeCourt ?? 0,
       type: 'DOUBLES',
       status: freeCourt ? 'IN_PROGRESS' : 'QUEUED',
+      pairingAlgorithm: s.pairingAlgorithm,
+      opponentAlgorithm: s.opponentAlgorithm,
       gamePlayers: {
         create: [
           { sessionPlayerId: match.teamA.player1.id, team: 'A' },

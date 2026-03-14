@@ -28,6 +28,7 @@ interface CourtCardProps {
   courtNumber: number
   isAdmin: boolean
   onEnterScore: (game: Game) => void
+  onEditPlayers?: (game: Game) => void
   isEmpty?: boolean
 }
 
@@ -52,7 +53,7 @@ function EmptyCourt({ courtNumber }: { courtNumber: number }) {
   )
 }
 
-export default function CourtCard({ game, courtNumber, isAdmin, onEnterScore, isEmpty }: CourtCardProps) {
+export default function CourtCard({ game, courtNumber, isAdmin, onEnterScore, onEditPlayers, isEmpty }: CourtCardProps) {
   if (isEmpty || !game) return <EmptyCourt courtNumber={courtNumber} />
 
   const teamA = game.gamePlayers.filter((gp) => gp.team === 'A')
@@ -102,11 +103,29 @@ export default function CourtCard({ game, courtNumber, isAdmin, onEnterScore, is
             </span>
           )}
         </div>
-        {isTappable && (
-          <span className="rounded-full bg-white/15 px-[10px] py-[3px] text-[10px] font-semibold uppercase tracking-wide text-white/70">
-            Tap for score
-          </span>
-        )}
+        <div className="flex items-center gap-[6px]">
+          {isAdmin && (isPlaying || isQueued) && onEditPlayers && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEditPlayers(game) }}
+              className="flex h-[28px] w-[28px] items-center justify-center rounded-lg transition-all active:scale-90"
+              style={{
+                backgroundColor: isQueued ? 'var(--bg-hover)' : 'rgba(255,255,255,0.12)',
+                color: isQueued ? 'var(--text-tertiary)' : 'rgba(255,255,255,0.7)',
+              }}
+              aria-label="Edit players"
+              type="button"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+              </svg>
+            </button>
+          )}
+          {isTappable && (
+            <span className="rounded-full bg-white/15 px-[10px] py-[3px] text-[10px] font-semibold uppercase tracking-wide text-white/70">
+              Tap for score
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Teams */}

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft, Settings, RefreshCw, Users, Hash, LayoutGrid,
   AlertCircle, Moon, Sun, UserPlus, X, Loader2, Search,
+  MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react'
 import CourtCard from '@/components/session/CourtCard'
 import CompletedGameRow from '@/components/session/CompletedGameRow'
@@ -230,12 +231,23 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
   const [clubMembers, setClubMembers] = useState<ClubMember[]>([])
   const [pastGuests, setPastGuests] = useState<PastGuest[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
+  const [editingPlayer, setEditingPlayer] = useState<SessionPlayer | null>(null)
+  const [editName, setEditName] = useState('')
+  const [deletingPlayer, setDeletingPlayer] = useState<SessionPlayer | null>(null)
+  const [playerMenuId, setPlayerMenuId] = useState<string | null>(null)
+  const [swapGame, setSwapGame] = useState<Game | null>(null)
+  const [swapOutPlayerId, setSwapOutPlayerId] = useState<string | null>(null)
   const addPlayerRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/sessions/${params.sessionId}`)
-    if (!res.ok) { router.push('/dashboard'); return }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error(`[Session Load] API returned ${res.status}: ${errText}`)
+      router.push('/dashboard'); return
+    }
     const data = await res.json()
     setSession(data)
     setLoading(false)
@@ -262,6 +274,9 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
+      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setPlayerMenuId(null)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -321,6 +336,49 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
       body: JSON.stringify({ status: 'ENDED' }),
     })
     setShowEndConfirm(false)
+    await load(); setBusy(false)
+  }
+
+  async function renamePlayer() {
+    if (!editingPlayer || !editName.trim()) return
+    setBusy(true)
+    await fetch(`/api/sessions/${params.sessionId}/players/${editingPlayer.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guestName: editName.trim() }),
+    })
+    setEditingPlayer(null)
+    setEditName('')
+    await load(); setBusy(false)
+  }
+
+  async function removePlayer() {
+    if (!deletingPlayer) return
+    setBusy(true); setError('')
+    const res = await fetch(`/api/sessions/${params.sessionId}/players/${deletingPlayer.id}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok && res.status !== 204) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? 'Could not remove player')
+    }
+    setDeletingPlayer(null)
+    await load(); setBusy(false)
+  }
+
+  async function swapPlayer(newSessionPlayerId: string) {
+    if (!swapGame || !swapOutPlayerId) return
+    setBusy(true); setError('')
+    const res = await fetch(`/api/sessions/${params.sessionId}/games/${swapGame.id}/players`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldSessionPlayerId: swapOutPlayerId, newSessionPlayerId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? 'Could not swap player')
+    }
+    setSwapGame(null); setSwapOutPlayerId(null)
     await load(); setBusy(false)
   }
 
@@ -439,17 +497,19 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
               const wait = formatWait(stats?.lastGameEndedAt ?? null)
               const isLongWait = !stats?.lastGameEndedAt || (stats.lastGameEndedAt && Date.now() - stats.lastGameEndedAt.getTime() > 600000)
               const isToggling = togglingPlayer === p.id
+              const isMenuOpen = playerMenuId === p.id
+              const displayName = p.user?.name?.split(' ')[0] ?? p.guestName ?? 'Guest'
               return (
                 <div
                   key={p.id}
-                  className="flex min-h-[44px] items-center gap-[10px] rounded-xl px-[12px] py-[8px]"
+                  className="relative flex min-h-[44px] items-center gap-[10px] rounded-xl px-[12px] py-[8px]"
                   style={{ backgroundColor: i === 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--bg-card)' }}
                 >
                   <span className={`flex h-[7px] w-[7px] shrink-0 rounded-full ${
                     isLongWait ? 'bg-amber-400' : 'bg-primary/50'
                   }`} />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {p.user?.name?.split(' ')[0] ?? p.guestName ?? 'Guest'}
+                    {displayName}
                   </span>
                   <span className="shrink-0 text-xs tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
                     {gp}g
@@ -459,15 +519,47 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
                     {wait}
                   </span>
                   {isAdmin && (
-                    <button
-                      onClick={() => togglePlayerSleep(p.id, 'AVAILABLE')}
-                      disabled={isToggling}
-                      className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg transition-all hover:bg-amber-500/10 active:scale-90 disabled:opacity-40"
-                      title="Put player to sleep"
-                      aria-label="Put player to sleep"
-                    >
-                      <Moon size={14} style={{ color: 'var(--text-tertiary)' }} />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => togglePlayerSleep(p.id, 'AVAILABLE')}
+                        disabled={isToggling}
+                        className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg transition-all hover:bg-amber-500/10 active:scale-90 disabled:opacity-40"
+                        title="Put player to sleep"
+                        aria-label="Put player to sleep"
+                      >
+                        <Moon size={14} style={{ color: 'var(--text-tertiary)' }} />
+                      </button>
+                      <button
+                        onClick={() => setPlayerMenuId(isMenuOpen ? null : p.id)}
+                        className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--bg-hover)] active:scale-90"
+                        aria-label="Player options"
+                      >
+                        <MoreHorizontal size={14} style={{ color: 'var(--text-tertiary)' }} />
+                      </button>
+                      {isMenuOpen && (
+                        <div ref={menuRef}
+                          className="absolute right-[8px] top-[42px] z-30 min-w-[150px] overflow-hidden rounded-xl border shadow-[var(--shadow-elevated)]"
+                          style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)' }}
+                        >
+                          <button
+                            onClick={() => { setEditingPlayer(p); setEditName(p.guestName ?? p.user?.name ?? ''); setPlayerMenuId(null) }}
+                            className="flex w-full min-h-[44px] items-center gap-[10px] px-[14px] py-[10px] text-left text-sm transition-colors hover:bg-[var(--bg-hover)]"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            <Pencil size={14} style={{ color: 'var(--text-tertiary)' }} />
+                            Rename
+                          </button>
+                          <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+                          <button
+                            onClick={() => { setDeletingPlayer(p); setPlayerMenuId(null) }}
+                            className="flex w-full min-h-[44px] items-center gap-[10px] px-[14px] py-[10px] text-left text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+                          >
+                            <Trash2 size={14} />
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )
@@ -485,10 +577,11 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
           <div className="space-y-[4px]">
             {sleeping.map((p) => {
               const isToggling = togglingPlayer === p.id
+              const isMenuOpen = playerMenuId === p.id
               return (
                 <div
                   key={p.id}
-                  className="flex min-h-[40px] items-center gap-[10px] rounded-xl px-[12px] py-[8px]"
+                  className="relative flex min-h-[40px] items-center gap-[10px] rounded-xl px-[12px] py-[8px]"
                   style={{ backgroundColor: 'var(--bg-hover)', opacity: 0.7 }}
                 >
                   <Moon size={14} style={{ color: 'var(--text-tertiary)' }} />
@@ -496,15 +589,47 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
                     {p.user?.name?.split(' ')[0] ?? p.guestName ?? 'Guest'}
                   </span>
                   {isAdmin && (
-                    <button
-                      onClick={() => togglePlayerSleep(p.id, 'SITTING_OUT')}
-                      disabled={isToggling}
-                      className="flex h-[32px] shrink-0 items-center gap-[4px] rounded-lg px-[10px] text-xs font-medium transition-all hover:bg-primary/10 active:scale-95 disabled:opacity-40"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      <Sun size={12} />
-                      Wake
-                    </button>
+                    <>
+                      <button
+                        onClick={() => togglePlayerSleep(p.id, 'SITTING_OUT')}
+                        disabled={isToggling}
+                        className="flex h-[32px] shrink-0 items-center gap-[4px] rounded-lg px-[10px] text-xs font-medium transition-all hover:bg-primary/10 active:scale-95 disabled:opacity-40"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Sun size={12} />
+                        Wake
+                      </button>
+                      <button
+                        onClick={() => setPlayerMenuId(isMenuOpen ? null : p.id)}
+                        className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg transition-all hover:bg-[var(--bg-active)] active:scale-90"
+                        aria-label="Player options"
+                      >
+                        <MoreHorizontal size={14} style={{ color: 'var(--text-tertiary)' }} />
+                      </button>
+                      {isMenuOpen && (
+                        <div ref={menuRef}
+                          className="absolute right-[8px] top-[42px] z-30 min-w-[150px] overflow-hidden rounded-xl border shadow-[var(--shadow-elevated)]"
+                          style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-card)' }}
+                        >
+                          <button
+                            onClick={() => { setEditingPlayer(p); setEditName(p.guestName ?? p.user?.name ?? ''); setPlayerMenuId(null) }}
+                            className="flex w-full min-h-[44px] items-center gap-[10px] px-[14px] py-[10px] text-left text-sm transition-colors hover:bg-[var(--bg-hover)]"
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            <Pencil size={14} style={{ color: 'var(--text-tertiary)' }} />
+                            Rename
+                          </button>
+                          <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+                          <button
+                            onClick={() => { setDeletingPlayer(p); setPlayerMenuId(null) }}
+                            className="flex w-full min-h-[44px] items-center gap-[10px] px-[14px] py-[10px] text-left text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+                          >
+                            <Trash2 size={14} />
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )
@@ -624,6 +749,7 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
                       courtNumber={courtNum}
                       isAdmin={isAdmin}
                       onEnterScore={setSelectedGame}
+                      onEditPlayers={(g) => { setSwapGame(g); setSwapOutPlayerId(null) }}
                       isEmpty={!game}
                     />
                   </motion.div>
@@ -649,6 +775,7 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
                       courtNumber={0}
                       isAdmin={isAdmin}
                       onEnterScore={setSelectedGame}
+                      onEditPlayers={(g) => { setSwapGame(g); setSwapOutPlayerId(null) }}
                     />
                   </motion.div>
                 ))}
@@ -752,6 +879,192 @@ export default function LiveSessionPage({ params }: { params: { sessionId: strin
         />
       )}
 
+      {/* Swap player modal */}
+      <AnimatePresence>
+        {swapGame && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={(e) => e.target === e.currentTarget && (() => { setSwapGame(null); setSwapOutPlayerId(null) })()}
+            style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
+          >
+            <motion.div
+              className="w-full max-w-md rounded-t-3xl p-[24px] pb-[32px] sm:rounded-2xl sm:pb-[24px]"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            >
+              <div className="mx-auto mb-[16px] h-[4px] w-[40px] rounded-full sm:hidden" style={{ backgroundColor: 'var(--border-default)' }} />
+              <div className="mb-[4px] flex items-center justify-between">
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {swapOutPlayerId ? 'Choose Replacement' : 'Edit Players'}
+                </h2>
+                <button onClick={() => { setSwapGame(null); setSwapOutPlayerId(null) }}
+                  className="flex h-[36px] w-[36px] items-center justify-center rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+                  style={{ color: 'var(--text-tertiary)' }}>
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="mb-[16px] text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {swapOutPlayerId
+                  ? 'Pick a waiting player to swap in.'
+                  : 'Tap a player to swap them out.'}
+              </p>
+
+              {!swapOutPlayerId ? (
+                <div className="space-y-[6px]">
+                  {(['A', 'B'] as const).map(team => {
+                    const teamPlayers = swapGame.gamePlayers.filter(gp => gp.team === team)
+                    return (
+                      <div key={team}>
+                        <p className="mb-[4px] text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                          Team {team}
+                        </p>
+                        {teamPlayers.map(gp => (
+                          <button key={gp.id}
+                            onClick={() => setSwapOutPlayerId(gp.sessionPlayer.id)}
+                            className="flex w-full min-h-[48px] items-center gap-[10px] rounded-xl px-[14px] py-[10px] text-left transition-colors hover:bg-[var(--bg-hover)]"
+                          >
+                            <span className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                              style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}>
+                              {(gp.sessionPlayer.user?.name ?? gp.sessionPlayer.guestName ?? 'G')[0].toUpperCase()}
+                            </span>
+                            <span className="flex-1 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                              {gp.sessionPlayer.user?.name ?? gp.sessionPlayer.guestName ?? 'Guest'}
+                            </span>
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Swap</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="max-h-[300px] space-y-[2px] overflow-y-auto">
+                  <button
+                    onClick={() => setSwapOutPlayerId(null)}
+                    className="mb-[8px] flex min-h-[36px] items-center gap-[6px] text-xs font-medium text-primary"
+                  >
+                    <ChevronLeft size={14} />
+                    Back to players
+                  </button>
+                  {(() => {
+                    const gamePlayerIds = new Set(swapGame.gamePlayers.map(gp => gp.sessionPlayer.id))
+                    const swappable = session.sessionPlayers.filter(p =>
+                      p.status === 'AVAILABLE' && !gamePlayerIds.has(p.id) && !committedIds.has(p.id)
+                    )
+                    if (swappable.length === 0) {
+                      return <p className="py-[16px] text-center text-sm" style={{ color: 'var(--text-tertiary)' }}>No available players to swap in</p>
+                    }
+                    return swappable.map(p => (
+                      <button key={p.id}
+                        onClick={() => swapPlayer(p.id)}
+                        disabled={busy}
+                        className="flex w-full min-h-[48px] items-center gap-[10px] rounded-xl px-[14px] py-[10px] text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                      >
+                        <span className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                          style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-tertiary)' }}>
+                          {(p.user?.name ?? p.guestName ?? 'G')[0].toUpperCase()}
+                        </span>
+                        <span className="flex-1 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {p.user?.name ?? p.guestName ?? 'Guest'}
+                        </span>
+                        <span className="rounded-full bg-primary/10 px-[10px] py-[3px] text-xs font-semibold text-primary">
+                          Swap in
+                        </span>
+                      </button>
+                    ))
+                  })()}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rename modal */}
+      <AnimatePresence>
+        {editingPlayer && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={(e) => e.target === e.currentTarget && setEditingPlayer(null)}
+            style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-t-3xl p-[24px] pb-[32px] sm:rounded-2xl sm:pb-[24px]"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            >
+              <div className="mx-auto mb-[16px] h-[4px] w-[40px] rounded-full sm:hidden" style={{ backgroundColor: 'var(--border-default)' }} />
+              <h2 className="mb-[8px] text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Rename Player</h2>
+              <p className="mb-[16px] text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {editingPlayer.user ? 'This will set a display name for this session.' : 'Update the guest name.'}
+              </p>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') renamePlayer() }}
+                autoFocus
+                className="mb-[16px] w-full rounded-xl border px-[14px] py-[12px] text-[16px] transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--ring-focus)]"
+                style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--bg-hover)', color: 'var(--text-primary)' }}
+                placeholder="Player name"
+              />
+              <div className="flex gap-[10px]">
+                <button onClick={renamePlayer} disabled={busy || !editName.trim()}
+                  className="flex-1 rounded-xl bg-primary py-[14px] text-sm font-semibold text-white transition-colors disabled:opacity-50 active:scale-[0.98]">
+                  {busy ? 'Saving...' : 'Save'}
+                </button>
+                <button onClick={() => setEditingPlayer(null)}
+                  className="flex-1 rounded-xl border py-[14px] text-sm font-semibold transition-colors"
+                  style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete confirmation modal */}
+      <AnimatePresence>
+        {deletingPlayer && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={(e) => e.target === e.currentTarget && setDeletingPlayer(null)}
+            style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-t-3xl p-[24px] pb-[32px] sm:rounded-2xl sm:pb-[24px]"
+              style={{ backgroundColor: 'var(--bg-card)' }}
+              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            >
+              <div className="mx-auto mb-[16px] h-[4px] w-[40px] rounded-full sm:hidden" style={{ backgroundColor: 'var(--border-default)' }} />
+              <h2 className="mb-[8px] text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Remove Player?</h2>
+              <p className="mb-[20px] text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                Remove <strong>{deletingPlayer.user?.name ?? deletingPlayer.guestName ?? 'Guest'}</strong> from this session? Their completed game history will be kept.
+              </p>
+              <div className="flex gap-[10px]">
+                <button onClick={removePlayer} disabled={busy}
+                  className="flex-1 rounded-xl bg-red-500 py-[14px] text-sm font-semibold text-white transition-colors disabled:opacity-50 hover:bg-red-600">
+                  {busy ? 'Removing...' : 'Remove'}
+                </button>
+                <button onClick={() => setDeletingPlayer(null)}
+                  className="flex-1 rounded-xl border py-[14px] text-sm font-semibold transition-colors"
+                  style={{ borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* End session confirmation */}
       <AnimatePresence>
         {showEndConfirm && (
           <motion.div

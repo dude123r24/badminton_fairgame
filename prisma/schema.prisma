@@ -34,6 +34,7 @@ model User {
   gamesEntered        GameSet[]
   classOverrides      PlayerProfile[] @relation("ClassOverrider")
   formatOverrides     Game[] @relation("FormatOverrider")
+  gameAuditLogs       GameAuditLog[] @relation("GameAuditor")
 
   // NextAuth relations
   accounts        Account[]
@@ -178,6 +179,8 @@ enum PlayerClass {
 enum PairingAlgorithm {
   RANDOM
   EQUAL_WEIGHT
+  LADDER
+  PEG
   FIXED
   PER_GAME
 }
@@ -185,6 +188,8 @@ enum PairingAlgorithm {
 enum OpponentAlgorithm {
   RANDOM
   EQUAL_WEIGHT
+  LADDER
+  PEG
   OPPONENT_WEIGHT
   PLAY_WITHIN_CLASS
 }
@@ -335,6 +340,8 @@ model Game {
   courtNumber                 Int
   type                        GameType
   status                      GameStatus @default(IN_PROGRESS)
+  pairingAlgorithm            PairingAlgorithm?
+  opponentAlgorithm           OpponentAlgorithm?
   scoringSystemOverride       ScoringSystem?
   customCapScoreOverride      Int?
   matchFormatOverride         MatchFormat?
@@ -348,6 +355,7 @@ model Game {
   overrider               User? @relation("FormatOverrider", fields: [formatOverriddenBy], references: [id])
   sets                    GameSet[]
   gamePlayers             GamePlayer[]
+  auditLogs               GameAuditLog[]
 
   @@map("games")
 }
@@ -398,6 +406,20 @@ model GamePlayer {
   sessionPlayer   SessionPlayer @relation(fields: [sessionPlayerId], references: [id])
 
   @@map("game_players")
+}
+
+model GameAuditLog {
+  id          String   @id @default(cuid())
+  gameId      String
+  action      String
+  details     Json
+  performedBy String
+  createdAt   DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation("GameAuditor", fields: [performedBy], references: [id])
+
+  @@map("game_audit_logs")
 }
 
 // ============================================================================

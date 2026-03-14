@@ -18,16 +18,17 @@ interface SessionData {
 }
 
 const pairingOptions = [
-  { value: 'RANDOM', label: 'Random' },
-  { value: 'EQUAL_WEIGHT', label: 'Equal Weight' },
-  { value: 'PER_GAME', label: 'Per Game' },
+  { value: 'RANDOM', label: 'Random', icon: '🎲', desc: 'Shuffle and pair — pure chance, maximum variety' },
+  { value: 'EQUAL_WEIGHT', label: 'Balanced', icon: '⚖️', desc: 'Strong + weak partner so every team is equal' },
+  { value: 'LADDER', label: 'Ladder', icon: '🪜', desc: 'Similar-rated players pair up together' },
+  { value: 'PEG', label: 'Peg Board', icon: '📋', desc: 'Longest-waiting players go on next — pure fairness' },
 ]
 
 const opponentOptions = [
-  { value: 'RANDOM', label: 'Random' },
-  { value: 'EQUAL_WEIGHT', label: 'Equal Weight' },
-  { value: 'OPPONENT_WEIGHT', label: 'Opponent Weight' },
-  { value: 'PLAY_WITHIN_CLASS', label: 'Within Class' },
+  { value: 'RANDOM', label: 'Random', icon: '🎲', desc: 'Play any available team on the day' },
+  { value: 'EQUAL_WEIGHT', label: 'Balanced', icon: '⚖️', desc: 'Face the team closest to your combined rating' },
+  { value: 'LADDER', label: 'Ladder', icon: '🪜', desc: 'Adjacent-ranked teams play each other' },
+  { value: 'PEG', label: 'Peg Board', icon: '📋', desc: 'Matched by queue position — first come first served' },
 ]
 
 const scoringOptions = [
@@ -150,27 +151,63 @@ export default function SessionSettingsPage({ params }: { params: { sessionId: s
 
 function SettingSelect({ label, options, value, onChange }: {
   label: string
-  options: { value: string; label: string }[]
+  options: { value: string; label: string; icon?: string; desc?: string }[]
   value: string
   onChange: (v: string) => void
 }) {
+  const hasDesc = options.some(o => o.desc)
   return (
     <div className="card p-[16px]">
-      <label className="mb-[8px] block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</label>
-      <div className="flex flex-wrap gap-[6px]">
-        {options.map((opt) => (
-          <button key={opt.value} type="button" onClick={() => onChange(opt.value)}
-            className={`min-h-[40px] rounded-xl px-[14px] py-[10px] text-sm font-medium transition-all ${
-              value === opt.value
-                ? 'bg-primary/[0.1] text-primary ring-1 ring-primary/20'
-                : ''
-            }`}
-            style={value !== opt.value ? { backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' } : undefined}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <label className="mb-[10px] block text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</label>
+      {hasDesc ? (
+        <div className="grid gap-[6px]">
+          {options.map((opt) => {
+            const selected = value === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange(opt.value)}
+                className={`flex min-h-[52px] items-start gap-[10px] rounded-xl px-[14px] py-[10px] text-left transition-all ${
+                  selected ? 'bg-primary/[0.1] ring-1 ring-primary/20' : ''
+                }`}
+                style={!selected ? { backgroundColor: 'var(--bg-hover)' } : undefined}
+              >
+                {opt.icon && <span className="mt-[1px] text-base leading-none">{opt.icon}</span>}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-medium ${selected ? 'text-primary' : ''}`}
+                    style={!selected ? { color: 'var(--text-primary)' } : undefined}>
+                    {opt.label}
+                  </p>
+                  {opt.desc && (
+                    <p className="mt-[2px] text-xs leading-snug" style={{ color: 'var(--text-tertiary)' }}>
+                      {opt.desc}
+                    </p>
+                  )}
+                </div>
+                {selected && (
+                  <span className="mt-[2px] shrink-0 text-primary">✓</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-[6px]">
+          {options.map((opt) => (
+            <button key={opt.value} type="button" onClick={() => onChange(opt.value)}
+              className={`min-h-[40px] rounded-xl px-[14px] py-[10px] text-sm font-medium transition-all ${
+                value === opt.value
+                  ? 'bg-primary/[0.1] text-primary ring-1 ring-primary/20'
+                  : ''
+              }`}
+              style={value !== opt.value ? { backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' } : undefined}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

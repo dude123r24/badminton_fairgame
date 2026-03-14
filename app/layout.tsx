@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import './globals.css'
 import SessionProvider from '@/components/SessionProvider'
 import Navbar from '@/components/Navbar'
@@ -17,18 +19,20 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await getServerSession(authOptions)
+
   return (
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body className="font-sans antialiased">
-        <SessionProvider>
+        <SessionProvider session={session}>
           <ThemeProvider>
             <Navbar />
             {children}

@@ -5,17 +5,17 @@ import { useRouter } from 'next/navigation'
 import OptionCard from '@/components/ui/OptionCard'
 
 const PAIRING = [
-  { value: 'EQUAL_WEIGHT', icon: '⚖️', title: 'Equal Weight', description: 'Pair strongest with weakest for balanced teams' },
-  { value: 'RANDOM', icon: '🎲', title: 'Random', description: 'Shuffle and pair — pure chance' },
-  { value: 'PER_GAME', icon: '🔄', title: 'Per Game', description: 'Re-pair players fresh every round' },
-  { value: 'FIXED', icon: '🔒', title: 'Fixed', description: 'Pre-set partnerships, same team all session' },
+  { value: 'RANDOM', icon: '🎲', title: 'Random', description: 'Shuffle and pair — pure chance, maximum variety' },
+  { value: 'EQUAL_WEIGHT', icon: '⚖️', title: 'Balanced', description: 'Strong + weak partner so every team is roughly equal' },
+  { value: 'LADDER', icon: '🪜', title: 'Ladder', description: 'Similar-rated players pair together — play at your level' },
+  { value: 'PEG', icon: '📋', title: 'Peg Board', description: 'Longest-waiting players go on next — pure court-time fairness' },
 ]
 
 const OPPONENT = [
-  { value: 'EQUAL_WEIGHT', icon: '⚖️', title: 'Equal Weight', description: 'Face the pair closest to your combined skill' },
-  { value: 'RANDOM', icon: '🎲', title: 'Random', description: 'Play anyone available on the day' },
-  { value: 'OPPONENT_WEIGHT', icon: '🏆', title: 'Competitive', description: 'Weighted by individual opponent history' },
-  { value: 'PLAY_WITHIN_CLASS', icon: '🎯', title: 'Within Class', description: 'Amateurs vs amateurs, advanced vs advanced' },
+  { value: 'RANDOM', icon: '🎲', title: 'Random', description: 'Play any available team on the day' },
+  { value: 'EQUAL_WEIGHT', icon: '⚖️', title: 'Balanced', description: 'Face the team closest to your combined rating' },
+  { value: 'LADDER', icon: '🪜', title: 'Ladder', description: 'Adjacent-ranked teams play each other' },
+  { value: 'PEG', icon: '📋', title: 'Peg Board', description: 'Matched by queue position — first come first served' },
 ]
 
 const SCORING = [
@@ -83,8 +83,8 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
   })
   const [courts, setCourts] = useState(2)
   const [courtNumbers, setCourtNumbers] = useState('1,2')
-  const [pairing, setPairing] = useState('EQUAL_WEIGHT')
-  const [opponent, setOpponent] = useState('EQUAL_WEIGHT')
+  const [pairing, setPairing] = useState('RANDOM')
+  const [opponent, setOpponent] = useState('RANDOM')
   const [format, setFormat] = useState('ROTATING_PARTNER')
   const [structure, setStructure] = useState('CLUB_ROTATION')
   const [scoring, setScoring] = useState('RALLY_21')
@@ -124,7 +124,7 @@ export default function NewSessionPage({ params }: { params: { clubId: string } 
           courtNumbers: parsedCourtNums,
           pairingAlgorithm: pairing,
           opponentAlgorithm: opponent,
-          pairingMode: pairing === 'PER_GAME' ? 'PER_GAME' : 'FIXED',
+          pairingMode: 'PER_GAME',
           matchFormat: format,
           tournamentStructure: structure,
           scoringSystem: scoring,
